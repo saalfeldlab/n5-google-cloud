@@ -112,6 +112,15 @@
 						<altDeploymentRepository>internal.repo::default::file://${deploy.path}</altDeploymentRepository>
 					</configuration>
 				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-surefire-plugin</artifactId>
+					<configuration>
+						<excludes>
+							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageOAuth2Test</exclude>
+						</excludes>
+					</configuration>
+				</plugin>
 			</plugins>
 		</pluginManagement>
 	</build>
