@@ -50,6 +50,7 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageException;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
@@ -76,8 +77,9 @@ class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N
 
 		super(storage, bucketName, gsonBuilder);
 
+		// bucket creation is not supported in the mock library: https://github.com/GoogleCloudPlatform/google-cloud-java/issues/2106
 		if (storage.get(bucketName) == null)
-			storage.create(BucketInfo.of(bucketName));
+			handleUnsupportedOperationException(() -> storage.create(BucketInfo.of(bucketName)));
 		createGroup("");
 	}
 
@@ -121,8 +123,11 @@ class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N
 	@Override
 	public boolean remove() throws IOException {
 
-		remove("");
-		return storage.delete(bucketName);
+		// the mock library always returns false for buckets, account for that when returning the final status
+		final boolean bucketWasFound = storage.get(bucketName) != null;
+		final boolean blobsRemovalStatus = remove("");
+		final boolean bucketRemovalStatus = storage.delete(bucketName);
+		return blobsRemovalStatus && (bucketWasFound ? bucketRemovalStatus : true);
 	}
 
 	@Override
@@ -138,7 +143,13 @@ class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N
 			subBlobs.add(nextBlob.getBlobId());
 		}
 
-		storage.delete(subBlobs);
+		handleUnsupportedOperationException(
+				() -> storage.delete(subBlobs),
+				() -> {
+					for (final BlobId blobId : subBlobs)
+						storage.delete(blobId);
+				}
+			);
 		return !exists(pathName);
 	}
 
@@ -148,5 +159,25 @@ class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N
 
 		final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
 		storage.create(blobInfo, bytes);
+	}
+
+	protected void handleUnsupportedOperationException(final Runnable runnable) {
+
+		handleUnsupportedOperationException(runnable, null);
+	}
+
+	protected void handleUnsupportedOperationException(final Runnable runnable, final Runnable fallback) {
+
+		try {
+			runnable.run();
+		} catch (final StorageException | UnsupportedOperationException e) {
+			if (e instanceof UnsupportedOperationException || e.getCause() instanceof UnsupportedOperationException) {
+				// operation not supported (possibly the mock library is being used)
+				if (fallback != null)
+					fallback.run();
+			} else {
+				throw e;
+			}
+		}
 	}
 }
