@@ -71,10 +71,15 @@ public class GoogleCloudOAuth {
 		final GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
 				httpTransport, JSON_FACTORY, clientSecrets, Scope.toScopeStrings(scopes))
 				.setDataStoreFactory(dataStoreFactory)
+				.setAccessType("offline")
+				.setApprovalPrompt("force")
 				.build();
 
 		// authorize
 		final Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+
+		// make sure the token is up-to-date
+		credential.refreshToken();
 
 		accessToken = new AccessToken(credential.getAccessToken(), new Date(credential.getExpirationTimeMilliseconds()));
 	}
