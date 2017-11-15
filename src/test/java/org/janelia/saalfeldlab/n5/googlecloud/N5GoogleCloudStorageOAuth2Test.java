@@ -55,7 +55,12 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 			);
 
 		// query a list of user's projects first
-		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(oauth.getAccessToken()).create();
+		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(
+				oauth.getAccessToken(),
+				oauth.getClientSecrets(),
+				oauth.getRefreshToken()
+			).create();
+
 		final List<String> projectIds = GoogleCloudResourceManagerClient.listProjects(resourceManager);
 		if (projectIds.isEmpty())
 			fail("No projects were found. Create a google cloud project first");
@@ -63,7 +68,11 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 		// get first project id to run tests
 		final String projectId = projectIds.iterator().next();
 
-		final Storage storage = new GoogleCloudStorageClient(oauth.getAccessToken()).create(projectId);
+		final Storage storage = new GoogleCloudStorageClient(
+				oauth.getAccessToken(),
+				oauth.getClientSecrets(),
+				oauth.getRefreshToken()
+			).create(projectId);
 
 		n5 = N5GoogleCloudStorage.openCloudStorageWriter(storage, testBucketName);
 		n5Parser = (GsonAttributesParser)n5;
