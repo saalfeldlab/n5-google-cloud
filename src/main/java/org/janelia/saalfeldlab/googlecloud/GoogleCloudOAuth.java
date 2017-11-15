@@ -46,7 +46,9 @@ public class GoogleCloudOAuth {
 	/** Global instance of the JSON factory. */
 	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
+	private final GoogleClientSecrets clientSecrets;
 	private final AccessToken accessToken;
+	private final String refreshToken;
 
 	public GoogleCloudOAuth(
 			final Collection<? extends Scope> scopes,
@@ -64,8 +66,7 @@ public class GoogleCloudOAuth {
 		final FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(credentialsDir);
 
 		// load client secrets
-		final GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(JSON_FACTORY,
-				new InputStreamReader(jsonClientSecretsResourceStream));
+		clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(jsonClientSecretsResourceStream));
 
 		// set up authorization code flow
 		final GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
@@ -78,14 +79,22 @@ public class GoogleCloudOAuth {
 		// authorize
 		final Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
 
-		// make sure the token is up-to-date
-		credential.refreshToken();
-
 		accessToken = new AccessToken(credential.getAccessToken(), new Date(credential.getExpirationTimeMilliseconds()));
+		refreshToken = credential.getRefreshToken();
+	}
+
+	public GoogleClientSecrets getClientSecrets() {
+
+		return clientSecrets;
 	}
 
 	public AccessToken getAccessToken() {
 
 		return accessToken;
+	}
+
+	public String getRefreshToken() {
+
+		return refreshToken;
 	}
 }

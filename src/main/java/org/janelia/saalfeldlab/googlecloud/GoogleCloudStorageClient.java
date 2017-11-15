@@ -1,11 +1,11 @@
 package org.janelia.saalfeldlab.googlecloud;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.OAuth2Credentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 
-public class GoogleCloudStorageClient {
+public class GoogleCloudStorageClient extends GoogleCloudClient {
 
 	public static enum StorageScope implements GoogleCloudOAuth.Scope {
 
@@ -27,11 +27,14 @@ public class GoogleCloudStorageClient {
 		}
 	}
 
-	private final AccessToken accessToken;
-
 	public GoogleCloudStorageClient(final AccessToken accessToken) {
 
-		this.accessToken = accessToken;
+		super(accessToken);
+	}
+
+	public GoogleCloudStorageClient(final AccessToken accessToken, final GoogleClientSecrets clientSecrets, final String refreshToken) {
+
+		super(accessToken, clientSecrets, refreshToken);
 	}
 
 	public Storage create() {
@@ -46,6 +49,6 @@ public class GoogleCloudStorageClient {
 
 	private StorageOptions.Builder createStorageClientBuilder() {
 
-		return StorageOptions.newBuilder().setCredentials(OAuth2Credentials.create(accessToken));
+		return StorageOptions.newBuilder().setCredentials(getCredentials());
 	}
 }

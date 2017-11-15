@@ -4,14 +4,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.gax.paging.Page;
 import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.OAuth2Credentials;
 import com.google.cloud.resourcemanager.Project;
 import com.google.cloud.resourcemanager.ResourceManager;
 import com.google.cloud.resourcemanager.ResourceManagerOptions;
 
-public class GoogleCloudResourceManagerClient {
+public class GoogleCloudResourceManagerClient extends GoogleCloudClient {
 
 	public static enum ProjectsScope implements GoogleCloudOAuth.Scope {
 
@@ -32,20 +32,19 @@ public class GoogleCloudResourceManagerClient {
 		}
 	}
 
-	private final AccessToken accessToken;
-
 	public GoogleCloudResourceManagerClient(final AccessToken accessToken) {
 
-		this.accessToken = accessToken;
+		super(accessToken);
+	}
+
+	public GoogleCloudResourceManagerClient(final AccessToken accessToken, final GoogleClientSecrets clientSecrets, final String refreshToken) {
+
+		super(accessToken, clientSecrets, refreshToken);
 	}
 
 	public ResourceManager create() {
 
-		return ResourceManagerOptions
-				.newBuilder()
-				.setCredentials(OAuth2Credentials.create(accessToken))
-				.build()
-				.getService();
+		return ResourceManagerOptions.newBuilder().setCredentials(getCredentials()).build().getService();
 	}
 
 	public static List<String> listProjects(final ResourceManager resourceManager) {
