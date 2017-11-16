@@ -20,7 +20,7 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Iterator;
 import java.util.UUID;
 
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
@@ -30,6 +30,7 @@ import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
 import org.junit.BeforeClass;
 
+import com.google.cloud.resourcemanager.Project;
 import com.google.cloud.resourcemanager.ResourceManager;
 import com.google.cloud.storage.Storage;
 
@@ -61,12 +62,12 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 				oauth.getRefreshToken()
 			).create();
 
-		final List<String> projectIds = GoogleCloudResourceManagerClient.listProjects(resourceManager);
-		if (projectIds.isEmpty())
+		final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
+		if (!projectsIterator.hasNext())
 			fail("No projects were found. Create a google cloud project first");
 
 		// get first project id to run tests
-		final String projectId = projectIds.iterator().next();
+		final String projectId = projectsIterator.next().getProjectId();
 
 		final Storage storage = new GoogleCloudStorageClient(
 				oauth.getAccessToken(),
