@@ -1,7 +1,5 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import java.net.URI;
-
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -19,7 +17,7 @@ public class GoogleCloudStorageURITest
 			};
 		for ( final String link : links )
 		{
-			final GoogleCloudStorageURI uri = new GoogleCloudStorageURI( URI.create( link ) );
+			final GoogleCloudStorageURI uri = new GoogleCloudStorageURI( link );
 			Assert.assertEquals( "test-bucket", uri.getBucket() );
 			Assert.assertEquals( "test-dir/test-object.test", uri.getKey() );
 		}
@@ -42,7 +40,7 @@ public class GoogleCloudStorageURITest
 			};
 		for ( final String link : links )
 		{
-			final GoogleCloudStorageURI uri = new GoogleCloudStorageURI( URI.create( link ) );
+			final GoogleCloudStorageURI uri = new GoogleCloudStorageURI( link );
 			Assert.assertEquals( "test-bucket", uri.getBucket() );
 			Assert.assertNull( uri.getKey() );
 		}

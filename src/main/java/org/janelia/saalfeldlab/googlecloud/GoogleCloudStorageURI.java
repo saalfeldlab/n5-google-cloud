@@ -10,6 +10,11 @@ public class GoogleCloudStorageURI
 	private final String bucketName;
 	private final String objectKey;
 
+	public GoogleCloudStorageURI( final String str )
+	{
+		this( URI.create( str ) );
+	}
+
 	public GoogleCloudStorageURI( final URI uri )
 	{
 		final String path;
