@@ -89,7 +89,6 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	 *
 	 * @param storage
 	 * @param bucketName
-	 * @param gsonBuilder
 	 * @throws IOException
 	 */
 	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName) throws IOException {

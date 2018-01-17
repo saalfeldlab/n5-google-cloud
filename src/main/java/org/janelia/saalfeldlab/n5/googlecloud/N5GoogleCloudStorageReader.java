@@ -93,6 +93,21 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		}
 	}
 
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName) throws IOException {
+
+		this(storage, bucketName, new GsonBuilder());
+	}
+
 	@Override
 	public boolean exists(final String pathName) {
 
