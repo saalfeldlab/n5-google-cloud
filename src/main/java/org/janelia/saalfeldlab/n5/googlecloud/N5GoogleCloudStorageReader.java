@@ -41,6 +41,7 @@ import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.N5Reader;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
@@ -51,14 +52,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
 /**
- * N5 implementation using Google Cloud Storage backend.
+ * N5 implementation using Google Cloud Storage backend with version compatibility check.
  *
  * This implementation enforces that an empty attributes file is present for each group.
  * It is used for determining group existence and listing groups.
  *
  * @author Igor Pisarev
  */
-class N5GoogleCloudStorageReader extends AbstractGsonReader {
+public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
 
 	protected static final String jsonFile = "attributes.json";
 	protected static final String delimiter = "/";
@@ -76,12 +77,35 @@ class N5GoogleCloudStorageReader extends AbstractGsonReader {
 	 * @param storage
 	 * @param bucketName
 	 * @param gsonBuilder
+	 * @throws IOException
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
 
 		super(gsonBuilder);
+
 		this.storage = storage;
 		this.bucketName = bucketName;
+
+		if (exists("/")) {
+			final Version version = getVersion();
+			if (!VERSION.isCompatible(version))
+				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		}
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName) throws IOException {
+
+		this(storage, bucketName, new GsonBuilder());
 	}
 
 	@Override

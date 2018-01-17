@@ -55,14 +55,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
 /**
- * N5 implementation using Google Cloud Storage backend.
+ * N5 implementation using Google Cloud Storage backend with version compatibility check.
  *
  * This implementation enforces that an empty attributes file is present for each group.
  * It is used for determining group existence and listing groups.
  *
  * @author Igor Pisarev
  */
-class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N5Writer {
+public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N5Writer {
 
 	/**
 	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name
@@ -80,7 +80,20 @@ class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N
 		// bucket creation is not supported in the mock library: https://github.com/GoogleCloudPlatform/google-cloud-java/issues/2106
 		if (storage.get(bucketName) == null)
 			handleUnsupportedOperationException(() -> storage.create(BucketInfo.of(bucketName)));
-		createGroup("");
+
+		setAttribute("/", VERSION_KEY, VERSION.toString());
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName) throws IOException {
+
+		this(storage, bucketName, new GsonBuilder());
 	}
 
 	@Override

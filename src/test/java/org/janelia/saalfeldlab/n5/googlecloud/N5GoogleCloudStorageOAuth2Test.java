@@ -27,8 +27,7 @@ import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.junit.BeforeClass;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.cloud.resourcemanager.Project;
 import com.google.cloud.resourcemanager.ResourceManager;
@@ -41,10 +40,13 @@ import com.google.cloud.storage.Storage;
  */
 public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 
-	static private String testBucketName = "test-bucket-" + UUID.randomUUID();
+	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 
-	@BeforeClass
-	public static void setUpBeforeClass() throws IOException {
+	/**
+	 * @throws IOException
+	 */
+	@Override
+	protected N5Writer createN5Writer() throws IOException {
 
 		final GoogleCloudOAuth oauth = new GoogleCloudOAuth(
 				Arrays.asList(
@@ -75,9 +77,6 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 				oauth.getRefreshToken()
 			).create(projectId);
 
-		n5 = N5GoogleCloudStorage.openCloudStorageWriter(storage, testBucketName);
-		n5Parser = (GsonAttributesParser)n5;
-
-		AbstractN5Test.setUpBeforeClass();
+		return new N5GoogleCloudStorageWriter(storage, testBucketName);
 	}
 }

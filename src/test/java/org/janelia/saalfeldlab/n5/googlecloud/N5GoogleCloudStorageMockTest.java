@@ -19,8 +19,7 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import java.io.IOException;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.junit.BeforeClass;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
@@ -32,18 +31,15 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
  */
 public class N5GoogleCloudStorageMockTest extends AbstractN5Test {
 
-	static private String testBucketName = "test-bucket";
+	static private String testBucketName = "n5-test";
 
 	/**
 	 * @throws IOException
 	 */
-	@BeforeClass
-	public static void setUpBeforeClass() throws IOException {
+	@Override
+	protected N5Writer createN5Writer() throws IOException {
 
 		final Storage storage = LocalStorageHelper.getOptions().getService();
-		n5 = N5GoogleCloudStorage.openCloudStorageWriter(storage, testBucketName);
-		n5Parser = (GsonAttributesParser)n5;
-
-		AbstractN5Test.setUpBeforeClass();
+		return new N5GoogleCloudStorageWriter(storage, testBucketName);
 	}
 }
