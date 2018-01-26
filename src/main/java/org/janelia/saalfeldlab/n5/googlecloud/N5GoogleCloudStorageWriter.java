@@ -81,7 +81,8 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 		if (storage.get(bucketName) == null)
 			handleUnsupportedOperationException(() -> storage.create(BucketInfo.of(bucketName)));
 
-		setAttribute("/", VERSION_KEY, VERSION.toString());
+		if (!VERSION.equals(getVersion()))
+			setAttribute("/", VERSION_KEY, VERSION.toString());
 	}
 
 	/**
