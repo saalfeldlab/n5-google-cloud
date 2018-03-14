@@ -100,7 +100,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(pathName);
+		final Path path = Paths.get(removeLeadingSlash(pathName));
 		for (int i = 0; i < path.getNameCount(); ++i) {
 			final String subgroup = path.subpath(0, i + 1).toString();
 			if (!exists(subgroup))
@@ -139,7 +139,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 
 		// the mock library always returns false for buckets, account for that when returning the final status
 		final boolean bucketWasFound = storage.get(bucketName) != null;
-		final boolean blobsRemovalStatus = remove("");
+		final boolean blobsRemovalStatus = remove("/");
 		final boolean bucketRemovalStatus = storage.delete(bucketName);
 		return blobsRemovalStatus && (bucketWasFound ? bucketRemovalStatus : true);
 	}
@@ -147,8 +147,8 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
 
 		final List<BlobId> subBlobs = new ArrayList<>();
 		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix));
