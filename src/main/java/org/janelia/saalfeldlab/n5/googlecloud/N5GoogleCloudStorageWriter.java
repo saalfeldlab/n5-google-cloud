@@ -147,8 +147,8 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
 
 		final List<BlobId> subBlobs = new ArrayList<>();
 		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix));

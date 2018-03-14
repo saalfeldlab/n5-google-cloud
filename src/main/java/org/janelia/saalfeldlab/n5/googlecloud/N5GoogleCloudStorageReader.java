@@ -62,7 +62,6 @@ import com.google.gson.JsonElement;
 public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
 
 	protected static final String jsonFile = "attributes.json";
-	protected static final String delimiter = "/";
 
 	protected final Storage storage;
 	protected final String bucketName;
@@ -147,8 +146,8 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	@Override
 	public String[] list(final String pathName) throws IOException {
 
-		final String correctedPathName = removeFrontDelimiter(ensureCorrectDelimiter(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : appendDelimiter(correctedPathName);
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
 		final Path path = Paths.get(prefix);
 
 		final List<String> subGroups = new ArrayList<>();
@@ -158,7 +157,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 			final String blobName = nextBlob.getBlobId().getName();
 			if (exists(blobName)) {
 				final Path relativePath = path.relativize(Paths.get(blobName));
-				final String correctedSubgroupPathName = ensureCorrectDelimiter(relativePath.toString());
+				final String correctedSubgroupPathName = replaceBackSlashes(relativePath.toString());
 				subGroups.add(correctedSubgroupPathName);
 			}
 		}
@@ -181,14 +180,28 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		return blob != null && blob.exists();
 	}
 
-	protected static String ensureCorrectDelimiter(final String pathName) {
+	/**
+	 * Google Cloud service accepts only forward slashes as path delimiters.
+	 * This method replaces back slashes to forward slashes (if any) and returns a corrected path name.
+	 *
+	 * @param pathName
+	 * @return
+	 */
+	protected static String replaceBackSlashes(final String pathName) {
 
-		return pathName.replace("\\", delimiter);
+		return pathName.replace("\\", "/");
 	}
 
-	protected static String removeFrontDelimiter(final String pathName) {
+	/**
+	 * When absolute paths are passed (e.g. /group/data), Google Cloud service creates an additional root folder with an empty name.
+	 * This method removes the root slash symbol and returns the corrected path.
+	 *
+	 * @param pathName
+	 * @return
+	 */
+	protected static String removeLeadingSlash(final String pathName) {
 
-		return pathName.startsWith(delimiter) ? pathName.substring(1) : pathName;
+		return pathName.startsWith("/") || pathName.startsWith("\\") ? pathName.substring(1) : pathName;
 	}
 
 	/**
@@ -199,9 +212,9 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 * @param pathName
 	 * @return
 	 */
-	protected static String appendDelimiter(final String pathName) {
+	protected static String addTrailingSlash(final String pathName) {
 
-		return pathName.endsWith(delimiter) ? pathName : pathName + delimiter;
+		return pathName.endsWith("/") || pathName.endsWith("\\") ? pathName : pathName + "/";
 	}
 
 	/**
@@ -227,7 +240,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 			pathComponents[i] = Long.toString(gridPosition[i]);
 
 		final String dataBlockPathName = Paths.get(datasetPathName, pathComponents).toString();
-		return removeFrontDelimiter(ensureCorrectDelimiter(dataBlockPathName));
+		return removeLeadingSlash(replaceBackSlashes(dataBlockPathName));
 	}
 
 	/**
@@ -239,6 +252,6 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	protected static String getAttributesKey(final String pathName) {
 
 		final String attributesPathName = Paths.get(pathName, jsonFile).toString();
-		return removeFrontDelimiter(ensureCorrectDelimiter(attributesPathName));
+		return removeLeadingSlash(replaceBackSlashes(attributesPathName));
 	}
 }
