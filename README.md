@@ -1,5 +1,9 @@
-# n5-google-cloud
+# N5 Google Cloud
 N5 library implementation using Google Cloud Storage backend.
+
+## Implementation specifics
+* N5 containers are represented by buckets.
+* An `attributes.json` with an empty map is always created for any group. It is used to reliably check group existence as Google Cloud Storage does not have traditional folders.
 
 ## OAuth 2.0
 This [test](https://github.com/saalfeldlab/n5-google-cloud/blob/master/src/test/java/org/janelia/saalfeldlab/n5/googlecloud/N5GoogleCloudStorageOAuth2Test.java) uses OAuth 2.0 authentication to run unit tests using actual Google Cloud Storage backend. It is excluded from the test run configuration by default and requires a few steps to set up:
