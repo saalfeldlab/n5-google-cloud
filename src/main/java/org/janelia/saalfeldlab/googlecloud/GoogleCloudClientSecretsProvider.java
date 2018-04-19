@@ -8,6 +8,7 @@ import java.io.Writer;
 import java.nio.file.Path;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.json.JsonGenerator;
 
 public class GoogleCloudClientSecretsProvider {
 
@@ -38,7 +39,10 @@ public class GoogleCloudClientSecretsProvider {
 
 		location.getParent().toFile().mkdirs();
 		try (final Writer writer = new FileWriter(location.toFile())) {
-			GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer).serialize(clientSecrets);
+			final JsonGenerator jsonWriter = GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer);
+			jsonWriter.serialize(clientSecrets);
+			jsonWriter.flush();
+			jsonWriter.close();
 		}
 	}
 
