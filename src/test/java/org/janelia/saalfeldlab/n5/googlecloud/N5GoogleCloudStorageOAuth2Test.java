@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.UUID;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsProvider;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
@@ -53,16 +54,11 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
 						GoogleCloudStorageClient.StorageScope.READ_WRITE
 					),
-				"n5-test-oauth2",
-				N5GoogleCloudStorageOAuth2Test.class.getResourceAsStream("/client_secrets.json")
+				GoogleCloudClientSecretsProvider.load()
 			);
 
 		// query a list of user's projects first
-		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(
-				oauth.getAccessToken(),
-				oauth.getClientSecrets(),
-				oauth.getRefreshToken()
-			).create();
+		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(oauth.getCredentials()).create();
 
 		final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
 		if (!projectsIterator.hasNext())
@@ -71,11 +67,7 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 		// get first project id to run tests
 		final String projectId = projectsIterator.next().getProjectId();
 
-		final Storage storage = new GoogleCloudStorageClient(
-				oauth.getAccessToken(),
-				oauth.getClientSecrets(),
-				oauth.getRefreshToken()
-			).create(projectId);
+		final Storage storage = new GoogleCloudStorageClient(oauth.getCredentials(), projectId).create();
 
 		return new N5GoogleCloudStorageWriter(storage, testBucketName);
 	}
