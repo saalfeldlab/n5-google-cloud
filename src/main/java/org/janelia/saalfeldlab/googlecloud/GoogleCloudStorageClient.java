@@ -1,13 +1,12 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.auth.oauth2.AccessToken;
+import com.google.auth.Credentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 
-public class GoogleCloudStorageClient extends GoogleCloudClient {
+public class GoogleCloudStorageClient extends GoogleCloudClient<Storage> {
 
-	public static enum StorageScope implements GoogleCloudOAuth.Scope {
+	public static enum StorageScope implements Scope {
 
 		READ_ONLY("https://www.googleapis.com/auth/devstorage.read_only"),
 		READ_WRITE("https://www.googleapis.com/auth/devstorage.read_write"),
@@ -27,28 +26,25 @@ public class GoogleCloudStorageClient extends GoogleCloudClient {
 		}
 	}
 
-	public GoogleCloudStorageClient(final AccessToken accessToken) {
+	private final String projectId;
 
-		super(accessToken);
+	public GoogleCloudStorageClient(final Credentials credentials) {
+
+		this(credentials, null);
 	}
 
-	public GoogleCloudStorageClient(final AccessToken accessToken, final GoogleClientSecrets clientSecrets, final String refreshToken) {
+	public GoogleCloudStorageClient(final Credentials credentials, final String projectId) {
 
-		super(accessToken, clientSecrets, refreshToken);
+		super(credentials);
+		this.projectId = projectId;
 	}
 
+	@Override
 	public Storage create() {
 
-		return createStorageClientBuilder().build().getService();
-	}
-
-	public Storage create(final String projectId) {
-
-		return createStorageClientBuilder().setProjectId(projectId).build().getService();
-	}
-
-	private StorageOptions.Builder createStorageClientBuilder() {
-
-		return StorageOptions.newBuilder().setCredentials(getCredentials());
+		return StorageOptions.newBuilder()
+				.setCredentials(credentials)
+				.setProjectId(projectId)
+				.build().getService();
 	}
 }
