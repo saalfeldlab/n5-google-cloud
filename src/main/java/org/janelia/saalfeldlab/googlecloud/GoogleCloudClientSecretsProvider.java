@@ -36,7 +36,7 @@ public class GoogleCloudClientSecretsProvider {
 	 */
 	public static void save(final Path location, final GoogleClientSecrets clientSecrets) throws IOException {
 
-		location.toFile().mkdirs();
+		location.getParent().toFile().mkdirs();
 		try (final Writer writer = new FileWriter(location.toFile())) {
 			GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer).serialize(clientSecrets);
 		}
