@@ -23,7 +23,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.UUID;
 
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsProvider;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsCmdLinePrompt;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
@@ -54,7 +54,7 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
 						GoogleCloudStorageClient.StorageScope.READ_WRITE
 					),
-				GoogleCloudClientSecretsProvider.load()
+				new GoogleCloudClientSecretsCmdLinePrompt()
 			);
 
 		// query a list of user's projects first

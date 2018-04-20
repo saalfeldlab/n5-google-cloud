@@ -1,6 +1,11 @@
 package org.janelia.saalfeldlab.googlecloud;
 
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
@@ -8,6 +13,8 @@ import java.util.Collection;
 import java.util.Date;
 
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient.Scope;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.GoogleCloudClientSecretsPromptReason;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.GoogleCloudSecretsPromptCanceledException;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
@@ -17,6 +24,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.JsonGenerator;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.auth.Credentials;
@@ -29,6 +37,9 @@ public class GoogleCloudOAuth {
 	/** Base directory to store client secrets and user credentials. */
 	public static final Path DATA_STORE_DIR = Paths.get(System.getProperty("user.home"), ".google", "n5-google-cloud");
 
+	/** Filename to store client secrets. */
+	private static final String CLIENT_SECRETS_FILENAME = ".client";
+
 	/** Global instance of the JSON factory. */
 	public static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
@@ -36,9 +47,24 @@ public class GoogleCloudOAuth {
 	private final AccessToken accessToken;
 	private final String refreshToken;
 
-	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleClientSecrets clientSecrets) throws IOException {
+	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
 
-		this.clientSecrets = clientSecrets;
+		final Path clientSecretsLocation = DATA_STORE_DIR.resolve(CLIENT_SECRETS_FILENAME);
+		if (Files.exists(clientSecretsLocation)) {
+			clientSecrets = loadClientSecrets(clientSecretsLocation);
+		} else {
+			GoogleClientSecrets temporarySecrets;
+			try {
+				temporarySecrets = clientSecretsPrompt.prompt(GoogleCloudClientSecretsPromptReason.NOT_FOUND);
+				saveClientSecrets(clientSecretsLocation, temporarySecrets);
+			} catch (final GoogleCloudSecretsPromptCanceledException e) {
+				clientSecrets = null;
+				accessToken = null;
+				refreshToken = null;
+				return;
+			}
+			clientSecrets = temporarySecrets;
+		}
 
 		final HttpTransport httpTransport;
 		try {
@@ -56,6 +82,8 @@ public class GoogleCloudOAuth {
 				.setAccessType("offline")
 				.setApprovalPrompt("force")
 				.build();
+
+		// TODO: prompt for new client secret if the current one is invalid
 
 		// authorize
 		final Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
@@ -78,5 +106,23 @@ public class GoogleCloudOAuth {
 				.build();
 		}
 		return credentials;
+	}
+
+	protected static GoogleClientSecrets loadClientSecrets(final Path clientSecretsLocation) throws IOException {
+
+		try (final Reader reader = new FileReader(clientSecretsLocation.toFile())) {
+			return GoogleClientSecrets.load(GoogleCloudOAuth.JSON_FACTORY, reader);
+		}
+	}
+
+	protected static void saveClientSecrets(final Path clientSecretsLocation, final GoogleClientSecrets clientSecrets) throws IOException {
+
+		clientSecretsLocation.getParent().toFile().mkdirs();
+		try (final Writer writer = new FileWriter(clientSecretsLocation.toFile())) {
+			final JsonGenerator jsonWriter = GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer);
+			jsonWriter.serialize(clientSecrets);
+			jsonWriter.flush();
+			jsonWriter.close();
+		}
 	}
 }
