@@ -108,7 +108,7 @@ public class GoogleCloudOAuth {
 
 		final OAuth2Credentials credentials;
 		if (clientSecrets == null || refreshToken == null) {
-			credentials = OAuth2Credentials.create(accessToken);
+			credentials = accessToken != null ? OAuth2Credentials.create(accessToken) : null;
 		} else {
 			credentials = UserCredentials.newBuilder()
 					.setAccessToken(accessToken)
