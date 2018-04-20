@@ -10,7 +10,4 @@ This [test](https://github.com/saalfeldlab/n5-google-cloud/blob/master/src/test/
 1. Create a project in the [Google Cloud console](https://console.cloud.google.com).
 1. Enable [Storage API](https://console.cloud.google.com/apis/library/storage-component.googleapis.com) and [Resource Manager API](https://console.cloud.google.com/apis/library/cloudresourcemanager.googleapis.com).
 1. Go to [APIs & services](https://console.cloud.google.com/apis/credentials) and choose *Create credentials* → *OAuth client ID* → *Other*.
-1. Once created, either download the JSON file with client secrets from the web page, or run `SetGoogleCloudClientSecrets.java` with **client_id** and **client_secret** as arguments to store them in the default location `$user.home/.google/n5-google-cloud`.
-
-This approach allows to obtain temporary security credentials and a refresh token that can be used to obtain new short-term credentials. The [test](https://github.com/saalfeldlab/n5-google-cloud/blob/master/src/test/java/org/janelia/saalfeldlab/n5/googlecloud/N5GoogleCloudStorageOAuth2Test.java) shows how to create a Storage API client in a way that it handles refreshing access tokens internally.
-The refresh token remains valid as long as the user has not revoked application access.
+1. Run the test. You will be prompted for **client_id** and **client_secret** that are provided on the web page. They are needed to facilitate OAuth 2.0 in order to obtain user credentials. After that, both credentials and client secrets will be stored in the default location `$user.home/.google/n5-google-cloud` and will be automatically loaded from there on all subsequent runs.
