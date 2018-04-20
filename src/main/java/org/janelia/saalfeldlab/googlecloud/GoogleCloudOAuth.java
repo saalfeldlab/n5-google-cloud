@@ -1,16 +1,21 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.Writer;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.List;
+
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient.Scope;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.GoogleCloudClientSecretsPromptReason;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.GoogleCloudSecretsPromptCanceledException;
 
 import com.google.api.client.auth.oauth2.Credential;
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
@@ -20,40 +25,58 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.JsonGenerator;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.auth.Credentials;
 import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.OAuth2Credentials;
+import com.google.auth.oauth2.UserCredentials;
 
 public class GoogleCloudOAuth {
 
-	public static interface Scope {
+	/** Base directory to store client secrets and user credentials. */
+	public static final Path DATA_STORE_DIR = Paths.get(System.getProperty("user.home"), ".google", "n5-google-cloud");
 
-		@Override
-		public String toString();
-
-		public static Collection<String> toScopeStrings(final Collection<? extends Scope> scopes) {
-
-			final List<String> scopeStrings = new ArrayList<>();
-			for (final Scope scope : scopes)
-				scopeStrings.add(scope.toString());
-			return scopeStrings;
-		}
-	}
-
-	/** Base directory to store user credentials. */
-	private static final Path DATA_STORE_DIR = Paths.get(System.getProperty("user.home"), ".store");
+	/** Filename to store client secrets. */
+	private static final String CLIENT_SECRETS_FILENAME = ".client";
 
 	/** Global instance of the JSON factory. */
-	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+	public static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
 	private final GoogleClientSecrets clientSecrets;
 	private final AccessToken accessToken;
 	private final String refreshToken;
 
-	public GoogleCloudOAuth(
-			final Collection<? extends Scope> scopes,
-			final String credentialsPathName,
-			final InputStream jsonClientSecretsResourceStream) throws IOException {
+	public GoogleCloudOAuth(final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+
+		this(
+				Arrays.asList(
+						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
+						GoogleCloudStorageClient.StorageScope.READ_WRITE
+					),
+				clientSecretsPrompt
+			);
+	}
+
+	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+
+		final Path clientSecretsLocation = DATA_STORE_DIR.resolve(CLIENT_SECRETS_FILENAME);
+		if (Files.exists(clientSecretsLocation)) {
+			clientSecrets = loadClientSecrets(clientSecretsLocation);
+		} else {
+			GoogleClientSecrets temporarySecrets;
+			try {
+				temporarySecrets = clientSecretsPrompt.prompt(GoogleCloudClientSecretsPromptReason.NOT_FOUND);
+				saveClientSecrets(clientSecretsLocation, temporarySecrets);
+			} catch (final GoogleCloudSecretsPromptCanceledException e) {
+				clientSecrets = null;
+				accessToken = null;
+				refreshToken = null;
+				return;
+			}
+			clientSecrets = temporarySecrets;
+		}
 
 		final HttpTransport httpTransport;
 		try {
@@ -62,11 +85,7 @@ public class GoogleCloudOAuth {
 			throw new RuntimeException(e);
 		}
 
-		final File credentialsDir = DATA_STORE_DIR.resolve(credentialsPathName).toFile();
-		final FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(credentialsDir);
-
-		// load client secrets
-		clientSecrets = GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(jsonClientSecretsResourceStream));
+		final FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR.toFile());
 
 		// set up authorization code flow
 		final GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
@@ -76,6 +95,8 @@ public class GoogleCloudOAuth {
 				.setApprovalPrompt("force")
 				.build();
 
+		// TODO: prompt for new client secret if the current one is invalid
+
 		// authorize
 		final Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
 
@@ -83,18 +104,37 @@ public class GoogleCloudOAuth {
 		refreshToken = credential.getRefreshToken();
 	}
 
-	public GoogleClientSecrets getClientSecrets() {
+	public Credentials getCredentials() {
 
-		return clientSecrets;
+		final OAuth2Credentials credentials;
+		if (clientSecrets == null || refreshToken == null) {
+			credentials = OAuth2Credentials.create(accessToken);
+		} else {
+			credentials = UserCredentials.newBuilder()
+					.setAccessToken(accessToken)
+					.setClientId(clientSecrets.getDetails().getClientId())
+					.setClientSecret(clientSecrets.getDetails().getClientSecret())
+					.setRefreshToken(refreshToken)
+				.build();
+		}
+		return credentials;
 	}
 
-	public AccessToken getAccessToken() {
+	protected static GoogleClientSecrets loadClientSecrets(final Path clientSecretsLocation) throws IOException {
 
-		return accessToken;
+		try (final Reader reader = new FileReader(clientSecretsLocation.toFile())) {
+			return GoogleClientSecrets.load(GoogleCloudOAuth.JSON_FACTORY, reader);
+		}
 	}
 
-	public String getRefreshToken() {
+	protected static void saveClientSecrets(final Path clientSecretsLocation, final GoogleClientSecrets clientSecrets) throws IOException {
 
-		return refreshToken;
+		clientSecretsLocation.getParent().toFile().mkdirs();
+		try (final Writer writer = new FileWriter(clientSecretsLocation.toFile())) {
+			final JsonGenerator jsonWriter = GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer);
+			jsonWriter.serialize(clientSecrets);
+			jsonWriter.flush();
+			jsonWriter.close();
+		}
 	}
 }

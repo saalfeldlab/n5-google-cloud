@@ -1,41 +1,33 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.OAuth2Credentials;
-import com.google.auth.oauth2.UserCredentials;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
-public abstract class GoogleCloudClient {
+import com.google.auth.Credentials;
 
-	private final AccessToken accessToken;
-	private final GoogleClientSecrets clientSecrets;
-	private final String refreshToken;
+public abstract class GoogleCloudClient<T> {
 
-	public GoogleCloudClient(final AccessToken accessToken) {
+	public static interface Scope {
 
-		this(accessToken, null, null);
-	}
+		@Override
+		public String toString();
 
-	public GoogleCloudClient(final AccessToken accessToken, final GoogleClientSecrets clientSecrets, final String refreshToken) {
+		public static Collection<String> toScopeStrings(final Collection<? extends Scope> scopes) {
 
-		this.accessToken = accessToken;
-		this.clientSecrets = clientSecrets;
-		this.refreshToken = refreshToken;
-	}
-
-	protected OAuth2Credentials getCredentials() {
-
-		final OAuth2Credentials credentials;
-		if (clientSecrets == null || refreshToken == null) {
-			credentials = OAuth2Credentials.create(accessToken);
-		} else {
-			credentials = UserCredentials.newBuilder()
-					.setAccessToken(accessToken)
-					.setClientId(clientSecrets.getDetails().getClientId())
-					.setClientSecret(clientSecrets.getDetails().getClientSecret())
-					.setRefreshToken(refreshToken)
-				.build();
+			final List<String> scopeStrings = new ArrayList<>();
+			for (final Scope scope : scopes)
+				scopeStrings.add(scope.toString());
+			return scopeStrings;
 		}
-		return credentials;
 	}
+
+	protected final Credentials credentials;
+
+	public GoogleCloudClient(final Credentials credentials) {
+
+		this.credentials = credentials;
+	}
+
+	public abstract T create();
 }
