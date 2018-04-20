@@ -19,7 +19,6 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.UUID;
 
@@ -49,13 +48,7 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
 	@Override
 	protected N5Writer createN5Writer() throws IOException {
 
-		final GoogleCloudOAuth oauth = new GoogleCloudOAuth(
-				Arrays.asList(
-						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
-						GoogleCloudStorageClient.StorageScope.READ_WRITE
-					),
-				new GoogleCloudClientSecretsCmdLinePrompt()
-			);
+		final GoogleCloudOAuth oauth = new GoogleCloudOAuth(new GoogleCloudClientSecretsCmdLinePrompt());
 
 		// query a list of user's projects first
 		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(oauth.getCredentials()).create();

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 
@@ -46,6 +47,17 @@ public class GoogleCloudOAuth {
 	private final GoogleClientSecrets clientSecrets;
 	private final AccessToken accessToken;
 	private final String refreshToken;
+
+	public GoogleCloudOAuth(final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+
+		this(
+				Arrays.asList(
+						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
+						GoogleCloudStorageClient.StorageScope.READ_WRITE
+					),
+				clientSecretsPrompt
+			);
+	}
 
 	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
 
