@@ -41,8 +41,7 @@ public class GoogleCloudOAuth {
 	/** Filename to store client secrets. */
 	private static final String CLIENT_SECRETS_FILENAME = ".client";
 
-	/** Global instance of the JSON factory. */
-	public static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
+	private static final JsonFactory JSON_FACTORY = JacksonFactory.getDefaultInstance();
 
 	private final GoogleClientSecrets clientSecrets;
 	private final AccessToken accessToken;
@@ -123,7 +122,7 @@ public class GoogleCloudOAuth {
 	protected static GoogleClientSecrets loadClientSecrets(final Path clientSecretsLocation) throws IOException {
 
 		try (final Reader reader = new FileReader(clientSecretsLocation.toFile())) {
-			return GoogleClientSecrets.load(GoogleCloudOAuth.JSON_FACTORY, reader);
+			return GoogleClientSecrets.load(JSON_FACTORY, reader);
 		}
 	}
 
@@ -131,7 +130,7 @@ public class GoogleCloudOAuth {
 
 		clientSecretsLocation.getParent().toFile().mkdirs();
 		try (final Writer writer = new FileWriter(clientSecretsLocation.toFile())) {
-			final JsonGenerator jsonWriter = GoogleCloudOAuth.JSON_FACTORY.createJsonGenerator(writer);
+			final JsonGenerator jsonWriter = JSON_FACTORY.createJsonGenerator(writer);
 			jsonWriter.serialize(clientSecrets);
 			jsonWriter.flush();
 			jsonWriter.close();
