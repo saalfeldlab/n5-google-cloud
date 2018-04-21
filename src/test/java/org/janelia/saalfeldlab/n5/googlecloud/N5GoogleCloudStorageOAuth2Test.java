@@ -26,7 +26,6 @@ import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsCmdLinePrompt
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.cloud.resourcemanager.Project;
@@ -38,7 +37,7 @@ import com.google.cloud.storage.Storage;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5GoogleCloudStorageOAuth2Test extends AbstractN5Test {
+public class N5GoogleCloudStorageOAuth2Test extends AbstractN5GoogleCloudStorageTest {
 
 	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 
