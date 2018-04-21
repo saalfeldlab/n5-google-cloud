@@ -54,9 +54,6 @@ import com.google.gson.JsonElement;
 /**
  * N5 implementation using Google Cloud Storage backend with version compatibility check.
  *
- * This implementation enforces that an empty attributes file is present for each group.
- * It is used for determining group existence and listing groups.
- *
  * @author Igor Pisarev
  */
 public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
