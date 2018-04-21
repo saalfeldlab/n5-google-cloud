@@ -3,7 +3,6 @@ N5 library implementation using Google Cloud Storage backend.
 
 ### Implementation specifics
 * N5 containers are represented by buckets.
-* An `attributes.json` with an empty map is always created for any group. It is used to reliably check group existence as Google Cloud Storage does not have conventional directories.
 * In Google Cloud Storage, buckets are created within user projects. Thus, you will need to choose one of your projects in order to create a bucket. For reading a bucket, project id is not required as all buckets have unique names.
 
 ### OAuth 2.0

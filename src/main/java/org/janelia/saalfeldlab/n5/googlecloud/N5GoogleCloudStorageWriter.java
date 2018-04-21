@@ -28,10 +28,7 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -56,9 +53,6 @@ import com.google.gson.JsonElement;
 
 /**
  * N5 implementation using Google Cloud Storage backend with version compatibility check.
- *
- * This implementation enforces that an empty attributes file is present for each group.
- * It is used for determining group existence and listing groups.
  *
  * @author Igor Pisarev
  */
@@ -100,12 +94,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(removeLeadingSlash(pathName));
-		for (int i = 0; i < path.getNameCount(); ++i) {
-			final String subgroup = path.subpath(0, i + 1).toString();
-			if (!exists(subgroup))
-				setAttributes(subgroup, Collections.emptyMap());
-		}
+		writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(pathName))), null);
 	}
 
 	@Override
