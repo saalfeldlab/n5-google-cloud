@@ -18,7 +18,6 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
 
-import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.cloud.storage.Storage;
@@ -29,7 +28,7 @@ import com.google.cloud.storage.contrib.nio.testing.LocalStorageHelper;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5GoogleCloudStorageMockTest extends AbstractN5Test {
+public class N5GoogleCloudStorageMockTest extends AbstractN5GoogleCloudStorageTest {
 
 	static private String testBucketName = "n5-test";
 

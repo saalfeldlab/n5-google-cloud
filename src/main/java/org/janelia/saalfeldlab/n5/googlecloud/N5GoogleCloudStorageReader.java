@@ -54,9 +54,6 @@ import com.google.gson.JsonElement;
 /**
  * N5 implementation using Google Cloud Storage backend with version compatibility check.
  *
- * This implementation enforces that an empty attributes file is present for each group.
- * It is used for determining group existence and listing groups.
- *
  * @author Igor Pisarev
  */
 public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
@@ -110,8 +107,10 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String attributesKey = getAttributesKey(pathName);
-		return blobExists(getBlob(attributesKey));
+		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
+		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix), BlobListOption.currentDirectory());
+		return blobListing.iterateAll().iterator().hasNext();
 	}
 
 	@Override
@@ -155,10 +154,11 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext();) {
 			final Blob nextBlob = blobIterator.next();
 			final String blobName = nextBlob.getBlobId().getName();
-			if (exists(blobName)) {
+			if (blobName.endsWith("/")) {
 				final Path relativePath = path.relativize(Paths.get(blobName));
 				final String correctedSubgroupPathName = replaceBackSlashes(relativePath.toString());
-				subGroups.add(correctedSubgroupPathName);
+				if (!correctedSubgroupPathName.isEmpty())
+					subGroups.add(correctedSubgroupPathName);
 			}
 		}
 		return subGroups.toArray(new String[subGroups.size()]);
