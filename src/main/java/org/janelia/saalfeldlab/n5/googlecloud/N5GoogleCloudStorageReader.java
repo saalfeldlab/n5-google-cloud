@@ -154,10 +154,11 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext();) {
 			final Blob nextBlob = blobIterator.next();
 			final String blobName = nextBlob.getBlobId().getName();
-			if (exists(blobName)) {
+			if (blobName.endsWith("/")) {
 				final Path relativePath = path.relativize(Paths.get(blobName));
 				final String correctedSubgroupPathName = replaceBackSlashes(relativePath.toString());
-				subGroups.add(correctedSubgroupPathName);
+				if (!correctedSubgroupPathName.isEmpty())
+					subGroups.add(correctedSubgroupPathName);
 			}
 		}
 		return subGroups.toArray(new String[subGroups.size()]);
