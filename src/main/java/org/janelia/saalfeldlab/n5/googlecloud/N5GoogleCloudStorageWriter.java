@@ -28,6 +28,8 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -94,7 +96,11 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(pathName))), null);
+		final Path path = Paths.get(removeLeadingSlash(pathName));
+		for (int i = 0; i < path.getNameCount(); ++i) {
+			final String subgroup = path.subpath(0, i + 1).toString();
+			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))), null);
+		}
 	}
 
 	@Override
