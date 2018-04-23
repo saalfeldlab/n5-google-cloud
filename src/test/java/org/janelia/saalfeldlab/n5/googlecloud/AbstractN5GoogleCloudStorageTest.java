@@ -15,7 +15,7 @@ import org.junit.Test;
 public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 
 	/**
-	 * Currently, {@code N5GoogleCloudStorageWriter#exists(String)} is implemented by listing objects under that group.
+	 * Currently, {@code N5GoogleCloudStorageReader#exists(String)} is implemented by listing objects under that group.
 	 * This test case specifically tests its correctness.
 	 *
 	 * @throws IOException
@@ -55,5 +55,12 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		Assert.assertArrayEquals(new String[] {}, n5.list("/one/tw"));
 
 		Assert.assertTrue(n5.remove("/one/two/three"));
+		Assert.assertFalse(n5.exists("/one/two/three"));
+		Assert.assertTrue(n5.exists("/one/two"));
+		Assert.assertTrue(n5.exists("/one"));
+
+		Assert.assertTrue(n5.remove("/one"));
+		Assert.assertFalse(n5.exists("/one/two"));
+		Assert.assertFalse(n5.exists("/one"));
 	}
 }
