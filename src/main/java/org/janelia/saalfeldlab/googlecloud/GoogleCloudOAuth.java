@@ -18,8 +18,6 @@ import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.Google
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsPrompt.GoogleCloudSecretsPromptCanceledException;
 
 import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -48,17 +46,31 @@ public class GoogleCloudOAuth {
 	private final String refreshToken;
 
 	public GoogleCloudOAuth(final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+		this(clientSecretsPrompt, CredentialProvider.DEFAULT_PROVIDER);
+	}
+
+	public GoogleCloudOAuth(final GoogleCloudClientSecretsPrompt clientSecretsPrompt, final CredentialProvider getCredential) throws IOException {
 
 		this(
 				Arrays.asList(
 						GoogleCloudResourceManagerClient.ProjectsScope.READ_ONLY,
 						GoogleCloudStorageClient.StorageScope.READ_WRITE
 					),
-				clientSecretsPrompt
+				clientSecretsPrompt,
+				getCredential
 			);
 	}
 
-	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException
+	{
+		this(scopes, clientSecretsPrompt, CredentialProvider.DEFAULT_PROVIDER);
+	}
+
+	public GoogleCloudOAuth(
+			final Collection<? extends Scope> scopes,
+			final GoogleCloudClientSecretsPrompt clientSecretsPrompt,
+			CredentialProvider getCredential
+			) throws IOException {
 
 		final Path clientSecretsLocation = DATA_STORE_DIR.resolve(CLIENT_SECRETS_FILENAME);
 		if (Files.exists(clientSecretsLocation)) {
@@ -97,7 +109,7 @@ public class GoogleCloudOAuth {
 		// TODO: prompt for new client secret if the current one is invalid
 
 		// authorize
-		final Credential credential = new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+		final Credential credential = getCredential.fromFlow( flow );
 
 		accessToken = new AccessToken(credential.getAccessToken(), new Date(credential.getExpirationTimeMilliseconds()));
 		refreshToken = credential.getRefreshToken();

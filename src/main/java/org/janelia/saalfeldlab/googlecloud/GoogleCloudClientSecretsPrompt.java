@@ -18,7 +18,7 @@ public abstract class GoogleCloudClientSecretsPrompt {
 
 	public abstract GoogleClientSecrets prompt(final GoogleCloudClientSecretsPromptReason reason) throws GoogleCloudSecretsPromptCanceledException;
 
-	protected static GoogleClientSecrets create(final String clientId, final String clientSecret) {
+	public static GoogleClientSecrets create(final String clientId, final String clientSecret) {
 
 		final GoogleClientSecrets googleClientSecrets = new GoogleClientSecrets();
 		final Details googleClientSecretsDetails = new Details();
