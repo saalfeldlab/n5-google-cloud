@@ -114,6 +114,12 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	}
 
 	@Override
+	public boolean datasetExists(final String pathName) throws IOException {
+
+		return getDatasetAttributes(pathName) != null;
+	}
+
+	@Override
 	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
 
 		final String attributesKey = getAttributesKey(pathName);
