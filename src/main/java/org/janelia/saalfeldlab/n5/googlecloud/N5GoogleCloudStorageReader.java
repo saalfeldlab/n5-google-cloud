@@ -47,6 +47,7 @@ import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
@@ -156,7 +157,11 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		final Path path = Paths.get(prefix);
 
 		final List<String> subGroups = new ArrayList<>();
-		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix), BlobListOption.currentDirectory());
+		final Page<Blob> blobListing = storage.list(
+				bucketName,
+				BlobListOption.prefix(prefix),
+				BlobListOption.currentDirectory(),
+				BlobListOption.fields(BlobField.ID));
 		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext();) {
 			final Blob nextBlob = blobIterator.next();
 			final String blobName = nextBlob.getBlobId().getName();
