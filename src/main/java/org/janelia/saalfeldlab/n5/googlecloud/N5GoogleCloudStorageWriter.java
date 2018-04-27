@@ -49,7 +49,6 @@ import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.cloud.storage.StorageException;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
@@ -73,9 +72,8 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 
 		super(storage, bucketName, gsonBuilder);
 
-		// bucket creation is not supported in the mock library: https://github.com/GoogleCloudPlatform/google-cloud-java/issues/2106
-		if (storage.get(bucketName) == null)
-			handleUnsupportedOperationException(() -> storage.create(BucketInfo.of(bucketName)));
+		if (allOperationsSupported())
+			storage.create(BucketInfo.of(bucketName));
 
 		if (!VERSION.equals(getVersion()))
 			setAttribute("/", VERSION_KEY, VERSION.toString());
@@ -152,13 +150,13 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 			subBlobs.add(nextBlob.getBlobId());
 		}
 
-		handleUnsupportedOperationException(
-				() -> storage.delete(subBlobs),
-				() -> {
-					for (final BlobId blobId : subBlobs)
-						storage.delete(blobId);
-				}
-			);
+		if (allOperationsSupported()) {
+			storage.delete(subBlobs);
+		} else {
+			for (final BlobId blobId : subBlobs)
+				storage.delete(blobId);
+		}
+
 		return !exists(pathName);
 	}
 
@@ -168,25 +166,5 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 
 		final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
 		storage.create(blobInfo, bytes);
-	}
-
-	protected void handleUnsupportedOperationException(final Runnable runnable) {
-
-		handleUnsupportedOperationException(runnable, null);
-	}
-
-	protected void handleUnsupportedOperationException(final Runnable runnable, final Runnable fallback) {
-
-		try {
-			runnable.run();
-		} catch (final StorageException | UnsupportedOperationException e) {
-			if (e instanceof UnsupportedOperationException || e.getCause() instanceof UnsupportedOperationException) {
-				// operation not supported (possibly the mock library is being used)
-				if (fallback != null)
-					fallback.run();
-			} else {
-				throw e;
-			}
-		}
 	}
 }

@@ -49,6 +49,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.spi.v1.HttpStorageRpc;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 
@@ -192,6 +193,13 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	protected boolean blobExists(final Blob blob) {
 
 		return blob != null && blob.exists();
+	}
+
+	protected boolean allOperationsSupported() {
+
+		// some operations are not supported in the mock library, need to check whether a real or a fake client is being used
+		// would be better to check against FakeStorageRpc, but it is not desired to include the mock library as a non-test dependency
+		return storage.getOptions().getRpc() instanceof HttpStorageRpc;
 	}
 
 	/**
