@@ -1,5 +1,6 @@
 package org.janelia.saalfeldlab.googlecloud;
 
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -74,7 +75,7 @@ public class GoogleCloudOAuth {
 		GoogleClientSecrets temporarySecrets = null;
 		try {
 			temporarySecrets = loadClientSecrets(clientSecretsLocation);
-		} catch (final IllegalArgumentException illegalArgument) {
+		} catch (final IllegalArgumentException | FileNotFoundException exception) {
 			try {
 				temporarySecrets = clientSecretsPrompt.prompt(GoogleCloudClientSecretsPromptReason.NOT_FOUND);
 				saveClientSecrets(clientSecretsLocation, temporarySecrets);
