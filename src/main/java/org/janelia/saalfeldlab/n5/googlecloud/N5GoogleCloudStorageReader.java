@@ -111,10 +111,10 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 
 		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
 		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
-		final Page<Blob> blobListing = storage.list(
-				bucketName,
-				BlobListOption.prefix(prefix),
-				BlobListOption.pageSize(1));
+		final BlobListOption[] blobListOptions = allOperationsSupported() ?
+				new BlobListOption[] { BlobListOption.prefix(prefix), BlobListOption.pageSize(1) } :
+					new BlobListOption[] { BlobListOption.prefix(prefix) };
+		final Page<Blob> blobListing = storage.list(bucketName, blobListOptions);
 		return blobListing.getValues().iterator().hasNext();
 	}
 
