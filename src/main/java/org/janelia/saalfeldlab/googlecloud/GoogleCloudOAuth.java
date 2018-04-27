@@ -5,7 +5,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
@@ -61,58 +60,62 @@ public class GoogleCloudOAuth {
 			);
 	}
 
-	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException
-	{
+	public GoogleCloudOAuth(final Collection<? extends Scope> scopes, final GoogleCloudClientSecretsPrompt clientSecretsPrompt) throws IOException {
+
 		this(scopes, clientSecretsPrompt, CredentialProvider.DEFAULT_PROVIDER);
 	}
 
 	public GoogleCloudOAuth(
 			final Collection<? extends Scope> scopes,
 			final GoogleCloudClientSecretsPrompt clientSecretsPrompt,
-			CredentialProvider getCredential
-			) throws IOException {
+			final CredentialProvider getCredential) throws IOException {
 
 		final Path clientSecretsLocation = DATA_STORE_DIR.resolve(CLIENT_SECRETS_FILENAME);
-		if (Files.exists(clientSecretsLocation)) {
-			clientSecrets = loadClientSecrets(clientSecretsLocation);
-		} else {
-			GoogleClientSecrets temporarySecrets;
+		GoogleClientSecrets temporarySecrets = null;
+		try {
+			temporarySecrets = loadClientSecrets(clientSecretsLocation);
+		} catch (final IllegalArgumentException illegalArgument) {
 			try {
 				temporarySecrets = clientSecretsPrompt.prompt(GoogleCloudClientSecretsPromptReason.NOT_FOUND);
 				saveClientSecrets(clientSecretsLocation, temporarySecrets);
 			} catch (final GoogleCloudSecretsPromptCanceledException e) {
-				clientSecrets = null;
-				accessToken = null;
-				refreshToken = null;
-				return;
+				temporarySecrets = null;
 			}
-			clientSecrets = temporarySecrets;
+		}
+		this.clientSecrets = temporarySecrets;
+
+		if (this.clientSecrets == null) {
+			this.accessToken = null;
+			this.refreshToken = null;
 		}
 
-		final HttpTransport httpTransport;
-		try {
-			httpTransport = GoogleNetHttpTransport.newTrustedTransport();
-		} catch (final GeneralSecurityException e) {
-			throw new RuntimeException(e);
+		else {
+
+			final HttpTransport httpTransport;
+			try {
+				httpTransport = GoogleNetHttpTransport.newTrustedTransport();
+			} catch (final GeneralSecurityException e) {
+				throw new RuntimeException(e);
+			}
+
+			final FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR.toFile());
+
+			// set up authorization code flow
+			final GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
+					httpTransport, JSON_FACTORY, temporarySecrets, Scope.toScopeStrings(scopes))
+					.setDataStoreFactory(dataStoreFactory)
+					.setAccessType("offline")
+					.setApprovalPrompt("force")
+					.build();
+
+			// TODO: prompt for new client secret if the current one is invalid
+
+			// authorize
+			final Credential credential = getCredential.fromFlow(flow);
+
+			accessToken = new AccessToken(credential.getAccessToken(), new Date(credential.getExpirationTimeMilliseconds()));
+			refreshToken = credential.getRefreshToken();
 		}
-
-		final FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(DATA_STORE_DIR.toFile());
-
-		// set up authorization code flow
-		final GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
-				httpTransport, JSON_FACTORY, clientSecrets, Scope.toScopeStrings(scopes))
-				.setDataStoreFactory(dataStoreFactory)
-				.setAccessType("offline")
-				.setApprovalPrompt("force")
-				.build();
-
-		// TODO: prompt for new client secret if the current one is invalid
-
-		// authorize
-		final Credential credential = getCredential.fromFlow( flow );
-
-		accessToken = new AccessToken(credential.getAccessToken(), new Date(credential.getExpirationTimeMilliseconds()));
-		refreshToken = credential.getRefreshToken();
 	}
 
 	public Credentials getCredentials() {
