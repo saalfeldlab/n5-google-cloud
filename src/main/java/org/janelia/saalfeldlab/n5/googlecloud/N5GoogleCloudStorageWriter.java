@@ -72,7 +72,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 
 		super(storage, bucketName, gsonBuilder);
 
-		if (allOperationsSupported())
+		if (allOperationsSupported() && storage.get(bucketName) == null)
 			storage.create(BucketInfo.of(bucketName));
 
 		if (!VERSION.equals(getVersion()))
