@@ -1,4 +1,4 @@
-# N5 Google Cloud
+# N5 Google Cloud [![Build Status](https://travis-ci.org/saalfeldlab/n5-google-cloud.svg?branch=master)](https://travis-ci.org/saalfeldlab/n5-google-cloud)
 N5 library implementation using Google Cloud Storage backend.
 
 ### Implementation specifics
