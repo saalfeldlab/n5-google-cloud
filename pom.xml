@@ -180,7 +180,7 @@
 					<artifactId>maven-surefire-plugin</artifactId>
 					<configuration>
 						<excludes>
-							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageOAuth2Test</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageBackendTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>
