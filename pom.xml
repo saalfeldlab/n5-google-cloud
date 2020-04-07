@@ -122,27 +122,6 @@
 			<artifactId>google-cloud-resourcemanager</artifactId>
 			<version>0.87.0-alpha</version>
 		</dependency>
-		<dependency>
-			<groupId>com.google.apis</groupId>
-			<artifactId>google-api-services-oauth2</artifactId>
-			<version>v2-rev149-1.25.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.google.guava</groupId>
-					<artifactId>guava-jdk5</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.google.http-client</groupId>
-			<artifactId>google-http-client-jackson2</artifactId>
-			<version>1.28.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.oauth-client</groupId>
-			<artifactId>google-oauth-client-jetty</artifactId>
-			<version>1.28.0</version>
-		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
