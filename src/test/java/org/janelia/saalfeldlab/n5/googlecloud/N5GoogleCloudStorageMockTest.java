@@ -18,6 +18,7 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.cloud.storage.Storage;
@@ -37,6 +38,10 @@ public class N5GoogleCloudStorageMockTest extends AbstractN5GoogleCloudStorageTe
 	 */
 	@Override
 	protected N5Writer createN5Writer() throws IOException {
+
+		// If the credentials are present in the system, the mock test still prints the warning
+		// about using end-user credentials for some reason. Call this method to suppress the warning.
+		GoogleCloudClient.getSystemCredentials();
 
 		final Storage storage = LocalStorageHelper.getOptions().getService();
 		return new N5GoogleCloudStorageWriter(storage, testBucketName);
