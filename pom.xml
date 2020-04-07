@@ -6,7 +6,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>25.0.0</version>
+		<version>27.0.1</version>
 		<relativePath />
 	</parent>
 
@@ -54,7 +54,7 @@
 	</ciManagement>
 
 	<properties>
-		<n5.version>2.0.2</n5.version>
+		<n5.version>2.1.4</n5.version>
 
 		<package-name>org.janelia.saalfeldlab</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
@@ -122,27 +122,6 @@
 			<artifactId>google-cloud-resourcemanager</artifactId>
 			<version>0.87.0-alpha</version>
 		</dependency>
-		<dependency>
-			<groupId>com.google.apis</groupId>
-			<artifactId>google-api-services-oauth2</artifactId>
-			<version>v2-rev149-1.25.0</version>
-			<exclusions>
-				<exclusion>
-					<groupId>com.google.guava</groupId>
-					<artifactId>guava-jdk5</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.google.http-client</groupId>
-			<artifactId>google-http-client-jackson2</artifactId>
-			<version>1.28.0</version>
-		</dependency>
-		<dependency>
-			<groupId>com.google.oauth-client</groupId>
-			<artifactId>google-oauth-client-jetty</artifactId>
-			<version>1.28.0</version>
-		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
@@ -180,7 +159,7 @@
 					<artifactId>maven-surefire-plugin</artifactId>
 					<configuration>
 						<excludes>
-							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageOAuth2Test</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageBackendTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>

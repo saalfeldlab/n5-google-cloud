@@ -16,28 +16,27 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import static org.junit.Assert.fail;
+import com.google.auth.Credentials;
+import com.google.cloud.resourcemanager.Project;
+import com.google.cloud.resourcemanager.ResourceManager;
+import com.google.cloud.storage.Storage;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
+import org.janelia.saalfeldlab.n5.N5Writer;
 
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.UUID;
 
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudClientSecretsCmdLinePrompt;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudOAuth;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
-import org.janelia.saalfeldlab.n5.N5Writer;
-
-import com.google.cloud.resourcemanager.Project;
-import com.google.cloud.resourcemanager.ResourceManager;
-import com.google.cloud.storage.Storage;
+import static org.junit.Assert.fail;
 
 /**
- * Initiates testing of the Google Cloud Storage N5 implementation with OAuth 2.0 authentication.
+ * Initiates testing of the Google Cloud Storage N5 implementation using actual Google Cloud backend.
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public class N5GoogleCloudStorageOAuth2Test extends AbstractN5GoogleCloudStorageTest {
+public class N5GoogleCloudStorageBackendTest extends AbstractN5GoogleCloudStorageTest {
 
 	static private String testBucketName = "n5-test-" + UUID.randomUUID();
 
@@ -47,10 +46,10 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5GoogleCloudStorage
 	@Override
 	protected N5Writer createN5Writer() throws IOException {
 
-		final GoogleCloudOAuth oauth = new GoogleCloudOAuth(new GoogleCloudClientSecretsCmdLinePrompt());
+		final Credentials credentials = GoogleCloudClient.getSystemCredentials();
 
 		// query a list of user's projects first
-		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(oauth.getCredentials()).create();
+		final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(credentials).create();
 
 		final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
 		if (!projectsIterator.hasNext())
@@ -59,7 +58,7 @@ public class N5GoogleCloudStorageOAuth2Test extends AbstractN5GoogleCloudStorage
 		// get first project id to run tests
 		final String projectId = projectsIterator.next().getProjectId();
 
-		final Storage storage = new GoogleCloudStorageClient(oauth.getCredentials(), projectId).create();
+		final Storage storage = new GoogleCloudStorageClient(credentials, projectId).create();
 
 		return new N5GoogleCloudStorageWriter(storage, testBucketName);
 	}
