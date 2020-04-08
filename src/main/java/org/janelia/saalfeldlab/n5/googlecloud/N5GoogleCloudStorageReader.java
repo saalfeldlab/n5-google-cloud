@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.n5.AbstractGsonReader;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
@@ -64,32 +65,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 
 	protected final Storage storage;
 	protected final String bucketName;
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		super(gsonBuilder);
-
-		this.storage = storage;
-		this.bucketName = bucketName;
-
-		if (storage.get(bucketName) != null) {
-			final Version version = getVersion();
-			if (!VERSION.isCompatible(version))
-				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
-		}
-	}
+	protected final String containerPath;
 
 	/**
 	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
@@ -106,22 +82,114 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		this(storage, bucketName, new GsonBuilder());
 	}
 
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client, a given bucket name,
+	 * and a path to the container within the bucket.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param containerPath
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String containerPath) throws IOException {
+
+		this(storage, bucketName, containerPath, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given Google Cloud Storage URI.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param containerURI
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final GoogleCloudStorageURI containerURI) throws IOException {
+
+		this(storage, containerURI, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given Google Cloud Storage URI
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param containerURI
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final GoogleCloudStorageURI containerURI, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(storage, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(storage, bucketName, "/", gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client, a given bucket name,
+	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * If the bucket and/or container does not exist, it will not be created and
+	 * all subsequent attempts to read attributes, groups, or datasets will fail.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param containerPath
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageReader(
+			final Storage storage,
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder) throws IOException {
+
+		super(gsonBuilder);
+
+		this.storage = storage;
+		this.bucketName = bucketName;
+		this.containerPath = containerPath;
+
+		if (storage.get(bucketName) != null && (isContainerBucketRoot() || exists("/"))) {
+			final Version version = getVersion();
+			if (!VERSION.isCompatible(version))
+				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		}
+	}
+
 	@Override
 	public boolean exists(final String pathName) {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final BlobListOption[] blobListOptions = allOperationsSupported() ?
 				new BlobListOption[] { BlobListOption.prefix(prefix), BlobListOption.pageSize(1) } :
 					new BlobListOption[] { BlobListOption.prefix(prefix) };
 		final Page<Blob> blobListing = storage.list(bucketName, blobListOptions);
 		return blobListing.getValues().iterator().hasNext();
-	}
-
-	@Override
-	public boolean datasetExists(final String pathName) throws IOException {
-
-		return getDatasetAttributes(pathName) != null;
 	}
 
 	@Override
@@ -156,8 +224,8 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	@Override
 	public String[] list(final String pathName) throws IOException {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 		final Path path = Paths.get(prefix);
 
 		final List<String> subGroups = new ArrayList<>();
@@ -256,7 +324,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 * @param gridPosition
 	 * @return
 	 */
-	protected static String getDataBlockKey(
+	protected String getDataBlockKey(
 			final String datasetPathName,
 			final long[] gridPosition) {
 
@@ -265,7 +333,19 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 			pathComponents[i] = Long.toString(gridPosition[i]);
 
 		final String dataBlockPathName = Paths.get(removeLeadingSlash(datasetPathName), pathComponents).toString();
-		return replaceBackSlashes(dataBlockPathName);
+		return getFullPath(dataBlockPathName);
+	}
+
+	/**
+	 * Constructs a full path for a path that is relative to the container.
+	 *
+	 * @param relativePath
+	 * @return
+	 */
+	protected String getFullPath(final String relativePath) {
+
+		final String fullPath = Paths.get(removeLeadingSlash(containerPath), relativePath).toString();
+		return removeLeadingSlash(replaceBackSlashes(fullPath));
 	}
 
 	/**
@@ -274,9 +354,18 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 * @param pathName
 	 * @return
 	 */
-	protected static String getAttributesKey(final String pathName) {
+	protected String getAttributesKey(final String pathName) {
 
-		final String attributesPathName = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
-		return replaceBackSlashes(attributesPathName);
+		final String attributesPath = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
+		return getFullPath(attributesPath);
+	}
+
+	/**
+	 * Determines whether the current N5 container is stored at the root level of the bucket.
+	 *
+	 * @return
+	 */
+	protected boolean isContainerBucketRoot() {
+		return removeLeadingSlash(containerPath).isEmpty();
 	}
 }

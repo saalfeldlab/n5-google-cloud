@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
@@ -60,27 +61,7 @@ import com.google.gson.JsonElement;
 public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N5Writer {
 
 	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		super(storage, bucketName, gsonBuilder);
-
-		if (allOperationsSupported() && storage.get(bucketName) == null)
-			storage.create(BucketInfo.of(bucketName));
-
-		if (!VERSION.equals(getVersion()))
-			setAttribute("/", VERSION_KEY, VERSION.toString());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
+	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given bucket name.
 	 *
 	 * @param storage
 	 * @param bucketName
@@ -91,10 +72,92 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 		this(storage, bucketName, new GsonBuilder());
 	}
 
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client, a given bucket name,
+	 * and a path to the container within the bucket.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param containerPath
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final String containerPath) throws IOException {
+
+		this(storage, bucketName, containerPath, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given Google Cloud Storage URI.
+	 *
+	 * @param storage
+	 * @param containerURI
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(final Storage storage, final GoogleCloudStorageURI containerURI) throws IOException {
+
+		this(storage, containerURI, new GsonBuilder());
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given Google Cloud Storage URI
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param storage
+	 * @param containerURI
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(final Storage storage, final GoogleCloudStorageURI containerURI, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(storage, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} using an{@link Storage} client and a given bucket name
+	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+
+		this(storage, bucketName, "/", gsonBuilder);
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client, a given bucket name,
+	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
+	 *
+	 * @param storage
+	 * @param bucketName
+	 * @param containerPath
+	 * @param gsonBuilder
+	 * @throws IOException
+	 */
+	public N5GoogleCloudStorageWriter(
+			final Storage storage,
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder) throws IOException {
+
+		super(storage, bucketName, containerPath, gsonBuilder);
+
+		if (allOperationsSupported() && storage.get(bucketName) == null)
+			storage.create(BucketInfo.of(bucketName));
+
+		if (!isContainerBucketRoot() && !exists("/"))
+			createGroup("/");
+
+		if (!VERSION.equals(getVersion()))
+			setAttribute("/", VERSION_KEY, VERSION.toString());
+	}
+
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(removeLeadingSlash(pathName));
+		final Path path = Paths.get(getFullPath(pathName));
 		for (int i = 0; i < path.getNameCount(); ++i) {
 			final String subgroup = path.subpath(0, i + 1).toString();
 			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))), null);
@@ -131,17 +194,22 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	public boolean remove() throws IOException {
 
 		// the mock library always returns false for buckets, account for that when returning the final status
-		final boolean bucketWasFound = storage.get(bucketName) != null;
-		final boolean blobsRemovalStatus = remove("/");
-		final boolean bucketRemovalStatus = storage.delete(bucketName);
-		return blobsRemovalStatus && (bucketWasFound ? bucketRemovalStatus : true);
+		final boolean wasBucketFound = storage.get(bucketName) != null;
+		final boolean wasPathRemoved = remove("/");
+
+		if (!isContainerBucketRoot() || !wasPathRemoved)
+			return wasPathRemoved;
+
+		// N5 container was at the root level of the bucket so the bucket needs to be removed as well
+		final boolean wasBucketRemoved = storage.delete(bucketName);
+		return wasBucketFound ? wasBucketRemoved : true;
 	}
 
 	@Override
 	public boolean remove(final String pathName) throws IOException {
 
-		final String correctedPathName = removeLeadingSlash(replaceBackSlashes(pathName));
-		final String prefix = correctedPathName.isEmpty() ? "" : addTrailingSlash(correctedPathName);
+		final String fullPath = getFullPath(pathName);
+		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
 
 		final List<BlobId> subBlobs = new ArrayList<>();
 		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix));
