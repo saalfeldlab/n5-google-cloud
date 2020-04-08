@@ -17,6 +17,7 @@
 package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageContainerPathTest;
+import org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageWriter;
 import org.junit.AfterClass;
 import org.junit.Assert;
 
@@ -41,5 +42,6 @@ public class N5GoogleCloudStorageContainerPathMockTest extends AbstractN5GoogleC
         // override with more relaxed assertions because mock library does not support bucket creation and deletion
         rampDownAfterClass();
         Assert.assertNotNull(storage.get(testBucketName, "test/"));
+        Assert.assertTrue(new N5GoogleCloudStorageWriter(storage, testBucketName).remove());
     }
 }
