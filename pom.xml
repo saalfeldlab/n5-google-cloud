@@ -12,7 +12,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-google-cloud</artifactId>
-	<version>2.3.2-SNAPSHOT</version>
+	<version>3.0.0-SNAPSHOT</version>
 	<name>N5 Google Cloud</name>
 	<description>N5 library implementation using Google Cloud Storage backend.</description>
 
@@ -115,12 +115,12 @@
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-storage</artifactId>
-			<version>1.69.0</version>
+			<version>1.106.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-resourcemanager</artifactId>
-			<version>0.87.0-alpha</version>
+			<version>0.117.2-alpha</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -139,7 +139,7 @@
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-nio</artifactId>
-			<version>0.87.0-alpha</version>
+			<version>0.120.0-alpha</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
