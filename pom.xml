@@ -159,7 +159,8 @@
 					<artifactId>maven-surefire-plugin</artifactId>
 					<configuration>
 						<excludes>
-							<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.googlecloud.backend.N5GoogleCloudStorageBucketRootBackendTest</exclude>
+							<exclude>org.janelia.saalfeldlab.n5.googlecloud.backend.N5GoogleCloudStorageContainerPathBackendTest</exclude>
 						</excludes>
 					</configuration>
 				</plugin>
