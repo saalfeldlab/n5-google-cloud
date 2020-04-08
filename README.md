@@ -1,9 +1,12 @@
 # N5 Google Cloud [![Build Status](https://travis-ci.org/saalfeldlab/n5-google-cloud.svg?branch=master)](https://travis-ci.org/saalfeldlab/n5-google-cloud)
 N5 library implementation using Google Cloud Storage backend.
 
+N5 containers can be represented by either a Google Cloud Storage bucket, or a path (directory) within a bucket.
+
 ### Implementation specifics
-* N5 containers are represented by buckets.
-* In Google Cloud Storage, buckets are created within user projects. Thus, you will need to choose one of your projects in order to create a bucket. For reading a bucket, project id is not required as all buckets have unique names.
+* In Google Cloud Storage, buckets are created within user projects. If you want to create a bucket using the API, you would need to select one of your projects when creating `Storage`. Although `N5GoogleCloudStorageWriter` supports bucket creation, it's recommended that the bucket already exists before creating an instance of `N5GoogleCloudStorageWriter`.
+
+For reading a bucket or writing into an existing bucket, project id is not required as all buckets have unique names.
 
 ### Authentication
 
