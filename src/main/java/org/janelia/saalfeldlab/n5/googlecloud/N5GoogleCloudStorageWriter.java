@@ -191,6 +191,16 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	}
 
 	@Override
+	public boolean deleteBlock(final String pathName, final long[] gridPosition) throws IOException {
+
+		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
+		final Blob dataBlockBlob = getBlob(dataBlockKey);
+		if (blobExists(dataBlockBlob))
+			dataBlockBlob.delete();
+		return !blobExists(dataBlockBlob);
+	}
+
+	@Override
 	public boolean remove() throws IOException {
 
 		// the mock library always returns false for buckets, account for that when returning the final status
