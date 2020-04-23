@@ -16,15 +16,12 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud.backend;
 
-import com.google.auth.Credentials;
 import com.google.cloud.resourcemanager.Project;
 import com.google.cloud.resourcemanager.ResourceManager;
 import com.google.cloud.storage.Storage;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
 
-import java.io.IOException;
 import java.util.Iterator;
 
 import static org.junit.Assert.fail;
@@ -33,14 +30,12 @@ public class BackendGoogleCloudStorageFactory {
 
     private static Storage storage;
 
-    public static Storage getOrCreateStorage() throws IOException {
+    public static Storage getOrCreateStorage() {
 
         if (storage == null) {
 
-            final Credentials credentials = GoogleCloudClient.getSystemCredentials();
-
             // query a list of user's projects first
-            final ResourceManager resourceManager = new GoogleCloudResourceManagerClient(credentials).create();
+            final ResourceManager resourceManager = new GoogleCloudResourceManagerClient().create();
 
             final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
             if (!projectsIterator.hasNext())
@@ -49,7 +44,7 @@ public class BackendGoogleCloudStorageFactory {
             // get first project id to run tests
             final String projectId = projectsIterator.next().getProjectId();
 
-            storage = new GoogleCloudStorageClient(credentials, projectId).create();
+            storage = new GoogleCloudStorageClient(projectId).create();
         }
 
         return storage;

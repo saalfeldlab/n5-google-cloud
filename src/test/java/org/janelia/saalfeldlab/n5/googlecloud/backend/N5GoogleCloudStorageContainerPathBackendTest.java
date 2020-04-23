@@ -30,7 +30,7 @@ import java.io.IOException;
  */
 public class N5GoogleCloudStorageContainerPathBackendTest extends AbstractN5GoogleCloudStorageContainerPathTest {
 
-    public N5GoogleCloudStorageContainerPathBackendTest() throws IOException {
+    public N5GoogleCloudStorageContainerPathBackendTest() {
 
         super(BackendGoogleCloudStorageFactory.getOrCreateStorage());
     }
