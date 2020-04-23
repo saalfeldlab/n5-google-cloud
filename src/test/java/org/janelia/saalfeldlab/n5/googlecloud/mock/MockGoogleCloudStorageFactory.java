@@ -32,7 +32,12 @@ public class MockGoogleCloudStorageFactory {
 
             // If the credentials are present in the system, the mock test still prints the warning
             // about using end-user credentials for some reason. Call this method to suppress the warning.
-            GoogleCloudClient.getSystemCredentials();
+            new GoogleCloudClient() {
+                @Override
+                public Object create() {
+                    return null;
+                }
+            };
 
             storage = LocalStorageHelper.getOptions().getService();
         }
