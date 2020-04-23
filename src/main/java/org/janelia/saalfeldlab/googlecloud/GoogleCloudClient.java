@@ -1,28 +1,16 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import com.google.auth.Credentials;
-import com.google.auth.oauth2.GoogleCredentials;
-
-import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Map;
 
 public abstract class GoogleCloudClient<T> {
 
-	protected final Credentials credentials;
+	public GoogleCloudClient() {
 
-	public GoogleCloudClient(final Credentials credentials) {
-
-		this.credentials = credentials;
+		suppressCredentialsWarning();
 	}
 
 	public abstract T create();
-
-	public static Credentials getSystemCredentials() throws IOException {
-
-		suppressCredentialsWarning();
-		return GoogleCredentials.getApplicationDefault();
-	}
 
 	/**
 	 * Google Cloud SDK prints a warning about authenticating using end user credentials instead of service accounts.
