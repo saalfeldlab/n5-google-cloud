@@ -43,7 +43,7 @@ public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends Abst
 
         rampDownAfterClass();
         Assert.assertNotNull(storage.get(testBucketName));
-        Assert.assertNotNull(storage.get(testBucketName, "test/"));
+        Assert.assertNull(storage.get(testBucketName, "test/"));
         new N5GoogleCloudStorageWriter(storage, testBucketName).remove();
         Assert.assertNull(storage.get(testBucketName));
     }

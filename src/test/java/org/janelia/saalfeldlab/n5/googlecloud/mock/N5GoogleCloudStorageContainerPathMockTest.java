@@ -41,7 +41,7 @@ public class N5GoogleCloudStorageContainerPathMockTest extends AbstractN5GoogleC
 
         // override with more relaxed assertions because mock library does not support bucket creation and deletion
         rampDownAfterClass();
-        Assert.assertNotNull(storage.get(testBucketName, "test/"));
+        Assert.assertNull(storage.get(testBucketName, "test/"));
         Assert.assertTrue(new N5GoogleCloudStorageWriter(storage, testBucketName).remove());
     }
 }
