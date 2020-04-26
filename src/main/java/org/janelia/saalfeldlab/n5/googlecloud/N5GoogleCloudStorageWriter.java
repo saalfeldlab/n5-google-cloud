@@ -157,10 +157,11 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	@Override
 	public void createGroup(final String pathName) throws IOException {
 
-		final Path path = Paths.get(getFullPath(pathName));
-		for (int i = 0; i < path.getNameCount(); ++i) {
-			final String subgroup = path.subpath(0, i + 1).toString();
-			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(subgroup))), null);
+		final Path groupPath = Paths.get(removeLeadingSlash(pathName));
+		for (int i = 0; i < groupPath.getNameCount(); ++i) {
+			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
+			final String fullParentGroupPath = getFullPath(parentGroupPath);
+			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))), null);
 		}
 	}
 
