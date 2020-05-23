@@ -82,8 +82,6 @@
 	</ciManagement>
 
 	<properties>
-		<n5.version>2.2.0</n5.version>
-
 		<package-name>org.janelia.saalfeldlab</package-name>
 		<license.licenseName>bsd_2</license.licenseName>
 		<license.projectName>N5 Google Cloud</license.projectName>
@@ -92,6 +90,11 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+
+		<n5.version>2.2.0</n5.version>
+		<google-cloud-storage.version>1.106.0</google-cloud-storage.version>
+		<google-cloud-resourcemanager.version>0.117.2-alpha</google-cloud-resourcemanager.version>
+		<google-cloud-nio.version>0.120.0-alpha</google-cloud-nio.version>
 	</properties>
 
 	<dependencies>
@@ -103,12 +106,12 @@
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-storage</artifactId>
-			<version>1.106.0</version>
+			<version>${google-cloud-storage.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-resourcemanager</artifactId>
-			<version>0.117.2-alpha</version>
+			<version>${google-cloud-resourcemanager.version}</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -121,13 +124,13 @@
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
 			<version>${n5.version}</version>
-			<type>test-jar</type>
+			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-nio</artifactId>
-			<version>0.120.0-alpha</version>
+			<version>${google-cloud-nio.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
