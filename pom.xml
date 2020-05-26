@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
 	<parent>
@@ -13,9 +12,9 @@
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-google-cloud</artifactId>
 	<version>3.2.2-SNAPSHOT</version>
+
 	<name>N5 Google Cloud</name>
 	<description>N5 library implementation using Google Cloud Storage backend.</description>
-
 	<url>https://github.com/saalfeldlab/n5-google-cloud</url>
 	<inceptionYear>2017</inceptionYear>
 	<organization>
@@ -28,40 +27,6 @@
 			<distribution>repo</distribution>
 		</license>
 	</licenses>
-
-	<mailingLists>
-		<mailingList>
-			<name>ImageJ Forum</name>
-			<archive>http://forum.imagej.net/</archive>
-		</mailingList>
-	</mailingLists>
-
-	<scm>
-		<connection>scm:git:git://github.com/saalfeldlab/n5-google-cloud</connection>
-		<developerConnection>scm:git:git@github.com:saalfeldlab/n5-google-cloud</developerConnection>
-		<tag>HEAD</tag>
-		<url>https://github.com/saalfeldlab/n5-google-cloud</url>
-	</scm>
-
-	<issueManagement>
-		<system>GitHub</system>
-		<url>https://github.com/saalfeldlab/n5-google-cloud/issues</url>
-	</issueManagement>
-
-	<ciManagement>
-		<system>Travis CI</system>
-		<url>https://travis-ci.org/saalfeldlab/n5-google-cloud</url>
-	</ciManagement>
-
-	<properties>
-		<n5.version>2.2.0</n5.version>
-
-		<package-name>org.janelia.saalfeldlab</package-name>
-		<license.licenseName>bsd_2</license.licenseName>
-		<license.projectName>N5 Google Cloud</license.projectName>
-		<license.organizationName>Saalfeld Lab</license.organizationName>
-		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
-	</properties>
 
 	<developers>
 		<developer>
@@ -79,7 +44,6 @@
 			</roles>
 		</developer>
 	</developers>
-
 	<contributors>
 		<contributor>
 			<name>Philipp Hanslovsky</name>
@@ -95,16 +59,43 @@
 		</contributor>
 	</contributors>
 
-	<repositories>
-		<repository>
-			<id>imagej.public</id>
-			<url>https://maven.imagej.net/content/groups/public</url>
-		</repository>
-		<repository>
-			<id>saalfeld-lab-maven-repo</id>
-			<url>https://saalfeldlab.github.io/maven</url>
-		</repository>
-	</repositories>
+	<mailingLists>
+		<mailingList>
+			<name>Image.sc Forum</name>
+			<archive>https://forum.image.sc/tag/n5</archive>
+		</mailingList>
+	</mailingLists>
+
+	<scm>
+		<connection>scm:git:git://github.com/saalfeldlab/n5-google-cloud</connection>
+		<developerConnection>scm:git:git@github.com:saalfeldlab/n5-google-cloud</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/saalfeldlab/n5-google-cloud</url>
+	</scm>
+	<issueManagement>
+		<system>GitHub</system>
+		<url>https://github.com/saalfeldlab/n5-google-cloud/issues</url>
+	</issueManagement>
+	<ciManagement>
+		<system>Travis CI</system>
+		<url>https://travis-ci.org/saalfeldlab/n5-google-cloud</url>
+	</ciManagement>
+
+	<properties>
+		<package-name>org.janelia.saalfeldlab.n5.googlecloud</package-name>
+		<license.licenseName>bsd_2</license.licenseName>
+		<license.projectName>N5 Google Cloud</license.projectName>
+		<license.organizationName>Saalfeld Lab</license.organizationName>
+		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
+
+		<!-- NB: Deploy releases to the SciJava Maven repository. -->
+		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+
+		<n5.version>2.2.0</n5.version>
+		<google-cloud-storage.version>1.106.0</google-cloud-storage.version>
+		<google-cloud-resourcemanager.version>0.117.2-alpha</google-cloud-resourcemanager.version>
+		<google-cloud-nio.version>0.120.0-alpha</google-cloud-nio.version>
+	</properties>
 
 	<dependencies>
 		<dependency>
@@ -115,12 +106,12 @@
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-storage</artifactId>
-			<version>1.106.0</version>
+			<version>${google-cloud-storage.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-resourcemanager</artifactId>
-			<version>0.117.2-alpha</version>
+			<version>${google-cloud-resourcemanager.version}</version>
 		</dependency>
 
 		<!-- Test dependencies -->
@@ -133,27 +124,27 @@
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
 			<version>${n5.version}</version>
-			<type>test-jar</type>
+			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
 			<groupId>com.google.cloud</groupId>
 			<artifactId>google-cloud-nio</artifactId>
-			<version>0.120.0-alpha</version>
+			<version>${google-cloud-nio.version}</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
+	<repositories>
+		<repository>
+			<id>scijava.public</id>
+			<url>https://maven.scijava.org/content/groups/public</url>
+		</repository>
+	</repositories>
+
 	<build>
 		<pluginManagement>
 			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-deploy-plugin</artifactId>
-					<configuration>
-						<altDeploymentRepository>internal.repo::default::file://${deploy.path}</altDeploymentRepository>
-					</configuration>
-				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
@@ -167,12 +158,4 @@
 			</plugins>
 		</pluginManagement>
 	</build>
-
-	<distributionManagement>
-		<repository>
-			<id>local-maven-repo</id>
-			<name>Local Maven Repository</name>
-			<url>file://${deploy.path}</url>
-		</repository>
-	</distributionManagement>
 </project>
