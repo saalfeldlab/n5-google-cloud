@@ -20,7 +20,8 @@ public class GoogleCloudStorageURI
 		final String path;
 		if ( uri.getScheme().equalsIgnoreCase( "gs" ) )
 		{
-			path = uri.getHost() + uri.getPath();
+			bucketName = uri.getAuthority();
+			objectKey = uri.getPath();
 		}
 		else if ( uri.getScheme().equalsIgnoreCase( "http" ) || uri.getScheme().equalsIgnoreCase( "https" ) )
 		{
@@ -31,15 +32,16 @@ public class GoogleCloudStorageURI
 				throw new IllegalArgumentException( "Not a google cloud storage link" );
 
 			path = uri.getPath().substring( storagePathPrefix.length() );
+
+			final int delimeterIndex = path.indexOf( "/" );
+			bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
+			objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex + 1 ) : null;
 		}
 		else
 		{
 			throw new IllegalArgumentException( "Invalid scheme" );
 		}
 
-		final int delimeterIndex = path.indexOf( "/" );
-		bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
-		objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex + 1 ) : null;
 	}
 
 	public String getBucket()
