@@ -173,7 +173,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 		this.bucketName = bucketName;
 		this.containerPath = containerPath;
 
-		if (storage.get(bucketName) != null && (isContainerBucketRoot() || exists("/"))) {
+		if (storage.get(bucketName) != null) {
 			final Version version = getVersion();
 			if (!VERSION.isCompatible(version))
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
