@@ -212,7 +212,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	public DataBlock<?> readBlock(
 			final String pathName,
 			final DatasetAttributes datasetAttributes,
-			final long[] gridPosition) throws IOException {
+			final long... gridPosition) throws IOException {
 
 		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
 		final Blob dataBlockBlob = getBlob(dataBlockKey);
@@ -329,7 +329,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 */
 	protected String getDataBlockKey(
 			final String datasetPathName,
-			final long[] gridPosition) {
+			final long... gridPosition) {
 
 		final String[] pathComponents = new String[gridPosition.length];
 		for (int i = 0; i < pathComponents.length; ++i)

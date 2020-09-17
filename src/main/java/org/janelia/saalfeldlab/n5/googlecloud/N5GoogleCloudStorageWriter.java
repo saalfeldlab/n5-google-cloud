@@ -195,7 +195,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	}
 
 	@Override
-	public boolean deleteBlock(final String pathName, final long[] gridPosition) throws IOException {
+	public boolean deleteBlock(final String pathName, final long... gridPosition) throws IOException {
 
 		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
 		final Blob dataBlockBlob = getBlob(dataBlockKey);
