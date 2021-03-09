@@ -35,7 +35,10 @@ import com.google.common.base.Splitter;
 
 public class GoogleCloudStorageURI
 {
+	private static final String storageHost = "storage.googleapis.com";
 	private static final String googleCloudHost = "googleapis.com";
+	private static final String googleCloudHost2 = "storage.cloud.google.com";
+
 	private static final String storagePathPrefix = "/storage/v1/b/";
 	private static final String projectKey = "project";
 
@@ -60,26 +63,39 @@ public class GoogleCloudStorageURI
 		}
 		else if ( uri.getScheme().equalsIgnoreCase( "http" ) || uri.getScheme().equalsIgnoreCase( "https" ) )
 		{
+			final String host = uri.getHost();
 
-			if ( !uri.getHost().equalsIgnoreCase( googleCloudHost ) && !uri.getHost().equalsIgnoreCase( "www." + googleCloudHost ) )
-				throw new IllegalArgumentException( "Not a google cloud storage link" );
+			if( host.equalsIgnoreCase( googleCloudHost ) || host.equalsIgnoreCase( "www." +googleCloudHost ))
+			{
+				if ( !uri.getPath().toLowerCase().startsWith( storagePathPrefix ) )
+					throw new IllegalArgumentException( "Not a google cloud storage link" );
 
-			if ( !uri.getPath().toLowerCase().startsWith( storagePathPrefix ) )
-				throw new IllegalArgumentException( "Not a google cloud storage link" );
+				path = uri.getPath().substring( storagePathPrefix.length() );
+				final int delimeterIndex = path.indexOf( "/" );
 
-			path = uri.getPath().substring( storagePathPrefix.length() );
-			final int delimeterIndex = path.indexOf( "/" );
+				bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
+				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex ) : "";
+				query = uri.getQuery();
+			}
+			else if( host.equalsIgnoreCase( storageHost ) || host.equalsIgnoreCase( googleCloudHost2 ))
+			{
+				path = uri.getPath().indexOf( '/' ) == 0 ? uri.getPath().substring( 1 ) : uri.getPath();
+				final int delimeterIndex = path.indexOf( "/" );
 
-			bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
-			objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex ) : "";
-			query = uri.getQuery();
+				bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
+				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex ) : "";
+				query = uri.getQuery();
+			}
+			else
+			{
+				throw new IllegalArgumentException( "Not a google cloud storage link" );	
+			}
 		}
 		else
 		{
 			throw new IllegalArgumentException( "Invalid scheme" );
 		}
 		queryMap = parseQuery();
-
 	}
 
 	public String getBucket()

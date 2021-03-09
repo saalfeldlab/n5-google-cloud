@@ -41,7 +41,8 @@ public class GoogleCloudStorageURITest
 				"http://googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test",
 				"http://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test",
 				"https://googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test",
-				"https://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test"
+				"https://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test",
+//				"https://storage.googleapis.com/example_multi-n5_bucket/test-dir/test-object.test"
 			};
 
 		for ( final String link : links )
@@ -60,7 +61,8 @@ public class GoogleCloudStorageURITest
 				"http://googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test?project=value",
 				"http://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test?project=value",
 				"https://googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test?project=value",
-				"https://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test?project=value"
+				"https://www.googleapis.com/storage/v1/b/test-bucket/test-dir/test-object.test?project=value",
+//				"https://storage.googleapis.com/example_multi-n5_bucket/test-dir/test-object.test?project=value"
 			};
 
 		for ( final String link : links )
@@ -85,6 +87,7 @@ public class GoogleCloudStorageURITest
 				"https://googleapis.com/storage/v1/b/test-bucket/",
 				"https://www.googleapis.com/storage/v1/b/test-bucket",
 				"https://www.googleapis.com/storage/v1/b/test-bucket/",
+				"https://storage.googleapis.com/test-bucket"
 			};
 
 		for ( final String link : links )
