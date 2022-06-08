@@ -89,8 +89,8 @@
 		<url>https://github.com/saalfeldlab/n5-google-cloud/issues</url>
 	</issueManagement>
 	<ciManagement>
-		<system>Travis CI</system>
-		<url>https://travis-ci.org/saalfeldlab/n5-google-cloud</url>
+		<system>GitHub Actions</system>
+		<url>https://github.com/saalfeldlab/n5-google-cloud/actions</url>
 	</ciManagement>
 
 	<properties>
@@ -101,7 +101,7 @@
 		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
-		<releaseProfiles>deploy-to-scijava</releaseProfiles>
+		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
 		<n5.version>2.5.0</n5.version>
 	</properties>
