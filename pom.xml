@@ -103,7 +103,7 @@
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>deploy-to-scijava</releaseProfiles>
 
-		<n5.version>2.5.0</n5.version>
+		<n5.version>2.5.2-SNAPSHOT</n5.version>
 	</properties>
 
 	<dependencies>

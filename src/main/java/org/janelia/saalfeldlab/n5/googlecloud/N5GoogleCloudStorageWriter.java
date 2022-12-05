@@ -44,6 +44,7 @@ import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
 import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.N5URL;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.api.gax.paging.Page;
@@ -165,6 +166,16 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
 			final String fullParentGroupPath = getFullPath(parentGroupPath);
 			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))), null);
+		}
+	}
+
+	@Override
+	public < T > void setAttribute( final String pathName, final String key, final T attribute ) throws IOException
+	{
+		final JsonElement attributesRootElement = getAttributesJson( pathName );
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			GsonAttributesParser.writeAttribute( new OutputStreamWriter(byteStream), attributesRootElement, N5URL.normalizeAttributePath( key ), attribute, gson);
+			writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
 

@@ -209,6 +209,19 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	}
 
 	@Override
+	public JsonElement getAttributesJson( final String pathName ) throws IOException
+	{
+		final String attributesKey = getAttributesKey(pathName);
+		final Blob attributesBlob = getBlob(attributesKey);
+		if (!blobExists(attributesBlob))
+			return null;
+
+		try (final InputStream in = readBlob(attributesBlob)) {
+			return GsonAttributesParser.readAttributesJson(new InputStreamReader(in), gson);
+		}
+	}
+
+	@Override
 	public DataBlock<?> readBlock(
 			final String pathName,
 			final DatasetAttributes datasetAttributes,
