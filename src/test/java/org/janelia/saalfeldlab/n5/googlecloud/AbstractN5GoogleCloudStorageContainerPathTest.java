@@ -51,6 +51,12 @@ public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends Abst
         return new N5GoogleCloudStorageWriter(storage, testBucketName, testContainerPath);
     }
 
+    @Override
+    protected N5Writer createN5Writer(String location) throws IOException {
+
+        return new N5GoogleCloudStorageWriter(storage, testBucketName, location);
+    }
+
     @AfterClass
     public static void cleanup() throws IOException {
 
