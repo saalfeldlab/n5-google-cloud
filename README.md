@@ -1,4 +1,6 @@
-# N5 Google Cloud [![Build Status](https://travis-ci.org/saalfeldlab/n5-google-cloud.svg?branch=master)](https://travis-ci.org/saalfeldlab/n5-google-cloud)
+[![Build Status](https://github.com/saalfeldlab/n5-google-cloud/actions/workflows/build-main.yml/badge.svg)](https://github.com/saalfeldlab/n5-google-cloud/actions/workflows/build-main.yml)
+
+# N5 Google Cloud
 N5 library implementation using Google Cloud Storage backend.
 
 N5 containers can be represented by either a Google Cloud Storage bucket, or a path (directory) within a bucket.
