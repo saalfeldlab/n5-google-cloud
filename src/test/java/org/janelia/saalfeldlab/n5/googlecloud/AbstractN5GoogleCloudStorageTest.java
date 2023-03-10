@@ -29,7 +29,7 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.nio.file.Paths;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.junit.Assert;
@@ -45,14 +45,34 @@ import com.google.cloud.storage.Storage;
  */
 public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 
-	protected static String testBucketName = "n5-test-" + UUID.randomUUID();
-
 	protected static Storage storage;
 
 	public AbstractN5GoogleCloudStorageTest(final Storage storage) {
 
 		AbstractN5GoogleCloudStorageTest.storage = storage;
 	}
+	protected String tempBucketName() {
+
+		return Paths.get(AbstractN5Test.tempN5PathName()).getFileName().toString();
+	}
+
+	protected String tempContainerPath() {
+		return AbstractN5Test.tempN5PathName();
+
+	}
+
+	protected void cleanTemporaryBucket(String containerPath) throws IOException {
+		/* Mocking Google Cloud does not support creating buckets, so all mocked writers write to the same bucket. We do this to ensure the bucket
+		 * is clean when creating a new writer overa a temporary bucket */
+		try (final N5GoogleCloudStorageWriter n5GoogleCloudStorageWriter = new N5GoogleCloudStorageWriter(storage, "ignored", containerPath)) {
+			final String[] paths = n5GoogleCloudStorageWriter.deepList("/");
+			for (String path : paths) {
+				n5GoogleCloudStorageWriter.remove(path);
+			}
+			n5GoogleCloudStorageWriter.remove();
+		}
+	}
+
 
 	/**
 	 * Currently, {@code N5GoogleCloudStorageReader#exists(String)} is implemented by listing objects under that group.

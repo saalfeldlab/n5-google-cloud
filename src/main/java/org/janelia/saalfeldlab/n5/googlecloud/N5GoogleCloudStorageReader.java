@@ -35,17 +35,16 @@ import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
+import com.google.gson.Gson;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.n5.AbstractGsonReader;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockReader;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.GsonN5Reader;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
@@ -62,13 +61,15 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
+public class N5GoogleCloudStorageReader implements GsonN5Reader{
 
 	protected static final String jsonFile = "attributes.json";
 
 	protected final Storage storage;
 	protected final String bucketName;
 	protected final String containerPath;
+
+	protected final Gson gson;
 
 	/**
 	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
@@ -170,25 +171,34 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 			final String containerPath,
 			final GsonBuilder gsonBuilder) throws IOException {
 
-		super(gsonBuilder);
-
+		this.gson = GsonN5Reader.registerGson(gsonBuilder);
 		this.storage = storage;
 		this.bucketName = bucketName;
 		this.containerPath = containerPath;
 
-		if (storage.get(bucketName) != null) {
+		if (storage.get(bucketName) != null && exists("/")) {
 			final Version version = getVersion();
 			if (!VERSION.isCompatible(version))
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
 		}
+
+	}
+
+	@Override public Gson getGson() {
+
+		return this.gson;
 	}
 
 	@Override
 	public boolean exists(final String pathName) {
+		return exists(storage, bucketName, containerPath, pathName);
+	}
 
-		final String fullPath = getFullPath(pathName);
+	protected static boolean exists(final Storage storage, final String bucketName, final String containerPath, final String pathName) {
+
+		final String fullPath = getFullPath(containerPath, pathName);
 		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
-		final BlobListOption[] blobListOptions = allOperationsSupported() ?
+		final BlobListOption[] blobListOptions = allOperationsSupported(storage) ?
 				new BlobListOption[] { BlobListOption.prefix(prefix), BlobListOption.pageSize(1) } :
 					new BlobListOption[] { BlobListOption.prefix(prefix) };
 		final Page<Blob> blobListing = storage.list(bucketName, blobListOptions);
@@ -196,20 +206,7 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	}
 
 	@Override
-	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
-
-		final String attributesKey = getAttributesKey(pathName);
-		final Blob attributesBlob = getBlob(attributesKey);
-		if (!blobExists(attributesBlob))
-			return new HashMap<>();
-
-		try (final InputStream in = readBlob(attributesBlob)) {
-			return GsonAttributesParser.readAttributes(new InputStreamReader(in), gson);
-		}
-	}
-
-	@Override
-	public JsonElement getAttributesJson( final String pathName ) throws IOException
+	public JsonElement getAttributes( final String pathName ) throws IOException
 	{
 		final String attributesKey = getAttributesKey(pathName);
 		final Blob attributesBlob = getBlob(attributesKey);
@@ -217,8 +214,14 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 			return null;
 
 		try (final InputStream in = readBlob(attributesBlob)) {
-			return GsonAttributesParser.readAttributesJson(new InputStreamReader(in), gson);
+			return GsonN5Reader.readAttributes(new InputStreamReader(in), gson);
 		}
+	}
+
+	@Override
+	public Map<String, Class<?>> listAttributes(String pathName) throws IOException {
+
+		return GsonN5Reader.listAttributes(getAttributes(pathName));
 	}
 
 	@Override
@@ -283,6 +286,11 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 
 		// some operations are not supported in the mock library, need to check whether a real or a fake client is being used
 		// would be better to check against FakeStorageRpc, but it is not desired to include the mock library as a non-test dependency
+		return allOperationsSupported(storage);
+	}
+
+	protected static boolean allOperationsSupported(Storage storage) {
+
 		return storage.getOptions().getRpc() instanceof HttpStorageRpc;
 	}
 
@@ -359,6 +367,9 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 * @return
 	 */
 	protected String getFullPath(final String relativePath) {
+		return getFullPath(containerPath, relativePath);
+	}
+	protected static String getFullPath(final String containerPath, final String relativePath) {
 
 		final String fullPath = Paths.get(removeLeadingSlash(containerPath), relativePath).toString();
 		return removeLeadingSlash(replaceBackSlashes(fullPath));
@@ -382,6 +393,11 @@ public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5
 	 * @return
 	 */
 	protected boolean isContainerBucketRoot() {
+		return isContainerBucketRoot(containerPath);
+	}
+
+	protected static boolean isContainerBucketRoot(String containerPath) {
+
 		return removeLeadingSlash(containerPath).isEmpty();
 	}
 }

@@ -50,6 +50,6 @@ public class N5GoogleCloudStorageBucketRootBackendTest extends AbstractN5GoogleC
     @Override
     protected N5Writer createN5Writer() throws IOException {
 
-        return new N5GoogleCloudStorageWriter(storage, testBucketName);
+        return new N5GoogleCloudStorageWriter(storage, tempBucketName());
     }
 }

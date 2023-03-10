@@ -34,7 +34,6 @@ import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -43,9 +42,8 @@ import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.n5.DataBlock;
 import org.janelia.saalfeldlab.n5.DatasetAttributes;
 import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.GsonN5Writer;
 import org.janelia.saalfeldlab.n5.N5URL;
-import org.janelia.saalfeldlab.n5.N5Writer;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
@@ -62,7 +60,7 @@ import com.google.gson.JsonElement;
  *
  * @author Igor Pisarev
  */
-public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N5Writer {
+public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements GsonN5Writer {
 
 	/**
 	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given bucket name.
@@ -146,35 +144,45 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 			final String containerPath,
 			final GsonBuilder gsonBuilder) throws IOException {
 
-		super(storage, bucketName, containerPath, gsonBuilder);
-
-		if (allOperationsSupported() && storage.get(bucketName) == null)
-			storage.create(BucketInfo.of(bucketName));
-
-		if (!isContainerBucketRoot() && !exists("/"))
-			createGroup("/");
+		super(storage, getOrCreateBucketAndContainerPath(storage, bucketName, containerPath), containerPath, gsonBuilder);
 
 		if (!VERSION.equals(getVersion()))
 			setAttribute("/", VERSION_KEY, VERSION.toString());
 	}
 
+	private static String getOrCreateBucketAndContainerPath(Storage storage, String bucketName, String containerPath) throws IOException {
+
+
+		if (allOperationsSupported(storage) && storage.get(bucketName) == null)
+			storage.create(BucketInfo.of(bucketName));
+
+		if (!isContainerBucketRoot(containerPath) && !exists(storage, bucketName, containerPath, "/"))
+			createGroup(storage, bucketName, containerPath, "/");
+
+
+		return bucketName;
+	}
+
 	@Override
 	public void createGroup(final String pathName) throws IOException {
+		createGroup(storage, bucketName, containerPath, pathName);
+	}
 
+	protected static void createGroup(Storage storage, final String bucketName, final String containerPath, final String pathName) throws IOException {
 		final Path groupPath = Paths.get(removeLeadingSlash(pathName));
 		for (int i = 0; i < groupPath.getNameCount(); ++i) {
 			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
-			final String fullParentGroupPath = getFullPath(parentGroupPath);
-			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))), null);
+			final String fullParentGroupPath = getFullPath(containerPath, parentGroupPath);
+			writeBlob(storage, bucketName, replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))), null);
 		}
 	}
 
 	@Override
 	public < T > void setAttribute( final String pathName, final String key, final T attribute ) throws IOException
 	{
-		final JsonElement attributesRootElement = getAttributesJson( pathName );
+		final JsonElement attributesRootElement = getAttributes( pathName );
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonAttributesParser.writeAttribute( new OutputStreamWriter(byteStream), attributesRootElement, N5URL.normalizeAttributePath( key ), attribute, gson);
+			GsonN5Writer.writeAttribute( new OutputStreamWriter(byteStream), attributesRootElement, N5URL.normalizeAttributePath( key ), attribute, gson);
 			writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
@@ -184,12 +192,53 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 			final String pathName,
 			final Map<String, ?> attributes) throws IOException {
 
-		final HashMap<String, JsonElement> map = getAttributes(pathName);
-		GsonAttributesParser.insertAttributes(map, attributes, gson);
+		JsonElement root = getAttributes(pathName);
+		root = GsonN5Writer.insertAttributes(root, attributes, gson);
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream), map, gson);
+			GsonN5Writer.writeAttributes(new OutputStreamWriter(byteStream), root, gson);
 			writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
+		}
+	}
+
+	@Override public boolean removeAttribute(String pathName, String key) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final boolean removed = GsonN5Writer.removeAttribute(new OutputStreamWriter(byteStream), root, N5URL.normalizeAttributePath(key), gson);
+			if (removed) {
+				writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
+		}
+	}
+
+	@Override public <T> T removeAttribute(String pathName, String key, Class<T> cls) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final T removed = GsonN5Writer.removeAttribute(new OutputStreamWriter(byteStream), root, N5URL.normalizeAttributePath(key), cls, gson);
+			if (removed != null) {
+				writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
+		}
+	}
+
+	@Override public boolean removeAttributes(String pathName, List<String> attributes) throws IOException {
+
+		final JsonElement root = getAttributes(pathName);
+		boolean removed = false;
+		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
+			final OutputStreamWriter writer = new OutputStreamWriter(byteStream);
+			for (final String attribute : attributes) {
+				removed |= GsonN5Writer.removeAttribute(root, N5URL.normalizeAttributePath(attribute), JsonElement.class, gson) != null;
+			}
+			if (removed) {
+				GsonN5Writer.writeAttributes(writer, root, gson);
+				writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
+			}
+			return removed;
 		}
 	}
 
@@ -254,6 +303,14 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	}
 
 	protected void writeBlob(
+			final String blobKey,
+			final byte[] bytes) throws IOException {
+		writeBlob( storage, bucketName, blobKey, bytes);
+	}
+
+	protected static void writeBlob(
+			Storage storage,
+			String bucketName,
 			final String blobKey,
 			final byte[] bytes) throws IOException {
 

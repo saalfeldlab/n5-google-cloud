@@ -28,12 +28,17 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageContainerPathTest;
-import org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageWriter;
 import org.junit.AfterClass;
-import org.junit.Assert;
+
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Initiates testing of the Google Cloud Storage N5 implementation using mock library.
@@ -48,12 +53,67 @@ public class N5GoogleCloudStorageContainerPathMockTest extends AbstractN5GoogleC
         super(MockGoogleCloudStorageFactory.getOrCreateStorage());
     }
 
+    @Override protected N5Writer createN5Writer() throws IOException {
+
+        return createN5Writer(tempContainerPath());
+    }
+
+    @Override protected N5Writer createN5Writer(String location) throws IOException {
+
+
+        cleanTemporaryBucket(location);
+        return super.createN5Writer(location);
+    }
+
+    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+
+        cleanTemporaryBucket(location);
+        return super.createN5Writer(location, gson);
+    }
+
+    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+
+        cleanTemporaryBucket(location);
+        return super.createN5Reader(location, gson);
+    }
+
     @AfterClass
     public static void cleanup() throws IOException {
 
         // override with more relaxed assertions because mock library does not support bucket creation and deletion
         rampDownAfterClass();
-        Assert.assertNull(storage.get(testBucketName, "test/"));
-        Assert.assertTrue(new N5GoogleCloudStorageWriter(storage, testBucketName).remove());
+    }
+
+    @Override public void testReaderCreation() throws IOException {
+        /* The Google cloud FakeStorageRpc that is used during tests does not support bucket creation.
+         * It manages this by treating the storage as a single bucket, that is gauranteed to exist.
+         * Because of this, we can't properly test the failure case where an N5GoogleClouseReader is
+         * constructed over a bucket that does not exist (which should fail).
+         *
+         * We override the test to remove that particular test. */
+
+
+        final File tmpFile = Files.createTempDirectory("reader-create-test-").toFile();
+        tmpFile.deleteOnExit();
+        final String canonicalPath = tmpFile.getCanonicalPath();
+        try (N5Writer writer = createN5Writer(canonicalPath)) {
+
+            final N5Reader n5r = createN5Reader(canonicalPath);
+            assertNotNull(n5r);
+
+            // existing directory without attributes is okay;
+            // Remove and create to remove attributes store
+            writer.remove("/");
+            writer.createGroup("/");
+            final N5Reader na = createN5Reader(canonicalPath);
+            assertNotNull(na);
+
+            // existing location with attributes, but no version
+            writer.remove("/");
+            writer.createGroup("/");
+            writer.setAttribute( "/", "mystring", "ms" );
+            final N5Reader wa = createN5Reader( canonicalPath);
+            assertNotNull( wa );
+        }
     }
 }

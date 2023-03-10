@@ -30,7 +30,11 @@ package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
 import java.io.IOException;
 
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageBucketRootTest;
+
+import static org.junit.Assert.assertNotNull;
 
 /**
  * Initiates testing of the Google Cloud Storage N5 implementation using mock library.
@@ -43,5 +47,46 @@ public class N5GoogleCloudStorageBucketRootMockTest extends AbstractN5GoogleClou
     public N5GoogleCloudStorageBucketRootMockTest() throws IOException {
 
         super(MockGoogleCloudStorageFactory.getOrCreateStorage());
+    }
+
+    @Override protected N5Writer createN5Writer() throws IOException {
+
+        final String bucketName = tempBucketName();
+        cleanTemporaryBucket("/");
+        return createN5Writer(bucketName);
+    }
+
+    @Override public void testReaderCreation() throws IOException {
+        /* The Google cloud FakeStorageRpc that is used during tests does not support bucket creation.
+         * It manages this by treating the storage as a single bucket, that is gauranteed to exist.
+         * Because of this, we can't properly test the failure case where an N5GoogleClouseReader is
+         * constructed over a bucket that does not exist (which should fail).
+         *
+         * We override the test to remove that particular test. */
+
+
+        final String canonicalPath = tempBucketName();
+        try (N5Writer writer = createN5Writer(canonicalPath)) {
+
+            final N5Reader n5r = createN5Reader(canonicalPath);
+            assertNotNull(n5r);
+
+            // existing directory without attributes is okay;
+            // Remove and create to remove attributes store
+            writer.remove("/");
+            writer.createGroup("/");
+            final N5Reader na = createN5Reader(canonicalPath);
+            assertNotNull(na);
+
+            // existing location with attributes, but no version
+            writer.remove("/");
+            writer.createGroup("/");
+            writer.setAttribute( "/", "mystring", "ms" );
+            final N5Reader wa = createN5Reader( canonicalPath);
+            assertNotNull( wa );
+
+            /* For cleanup */
+            writer.remove("/");
+        }
     }
 }

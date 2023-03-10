@@ -30,9 +30,10 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
 
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
-import org.junit.Assert;
 
 import com.google.cloud.storage.Storage;
 
@@ -46,7 +47,8 @@ public abstract class AbstractN5GoogleCloudStorageBucketRootTest extends Abstrac
     @Override
     protected N5Writer createN5Writer() throws IOException {
 
-        return new N5GoogleCloudStorageWriter(storage, testBucketName);
+        final String bucketName = tempBucketName();
+        return new N5GoogleCloudStorageWriter(storage, bucketName);
     }
 
     @Override
@@ -55,10 +57,19 @@ public abstract class AbstractN5GoogleCloudStorageBucketRootTest extends Abstrac
         return new N5GoogleCloudStorageWriter(storage, location);
     }
 
+    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+
+        return new N5GoogleCloudStorageWriter(storage, location, gson);
+    }
+
+    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+
+        return new N5GoogleCloudStorageReader(storage, location, gson);
+    }
+
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
-        Assert.assertNull(storage.get(testBucketName));
     }
 }

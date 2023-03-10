@@ -30,15 +30,14 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
 
+import com.google.gson.GsonBuilder;
+import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.AfterClass;
-import org.junit.Assert;
 
 import com.google.cloud.storage.Storage;
 
 public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends AbstractN5GoogleCloudStorageTest {
-
-    protected static String testContainerPath = "/test/container/";
 
     public AbstractN5GoogleCloudStorageContainerPathTest(final Storage storage) {
 
@@ -48,22 +47,28 @@ public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends Abst
     @Override
     protected N5Writer createN5Writer() throws IOException {
 
-        return new N5GoogleCloudStorageWriter(storage, testBucketName, testContainerPath);
+        return new N5GoogleCloudStorageWriter(storage, tempBucketName(), tempContainerPath());
     }
 
     @Override
     protected N5Writer createN5Writer(String location) throws IOException {
 
-        return new N5GoogleCloudStorageWriter(storage, testBucketName, location);
+        return new N5GoogleCloudStorageWriter(storage, tempBucketName(), location);
+    }
+
+    @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
+
+        return new N5GoogleCloudStorageWriter(storage, tempBucketName(), location, gson);
+    }
+
+    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
+
+        return new N5GoogleCloudStorageReader(storage, tempBucketName(), location, gson);
     }
 
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
-        Assert.assertNotNull(storage.get(testBucketName));
-        Assert.assertNull(storage.get(testBucketName, "test/"));
-        new N5GoogleCloudStorageWriter(storage, testBucketName).remove();
-        Assert.assertNull(storage.get(testBucketName));
     }
 }
