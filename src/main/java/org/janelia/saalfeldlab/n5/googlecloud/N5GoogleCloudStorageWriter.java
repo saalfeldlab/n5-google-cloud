@@ -156,7 +156,7 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 		if (allOperationsSupported(storage) && storage.get(bucketName) == null)
 			storage.create(BucketInfo.of(bucketName));
 
-		if (!isContainerBucketRoot(containerPath) && !exists(storage, bucketName, containerPath, "/"))
+		if (!exists(storage, bucketName, containerPath, "/"))
 			createGroup(storage, bucketName, containerPath, "/");
 
 
@@ -178,11 +178,14 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 	}
 
 	@Override
-	public < T > void setAttribute( final String pathName, final String key, final T attribute ) throws IOException
-	{
-		final JsonElement attributesRootElement = getAttributes( pathName );
+	public <T> void setAttribute(final String pathName, final String key, final T attribute) throws IOException {
+
+		final JsonElement attributesRootElement = getAttributes(pathName);
+		if (attributesRootElement == null && !exists(pathName)) {
+			throw new IOException("Group " + pathName + " does not exist");
+		}
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonN5Writer.writeAttribute( new OutputStreamWriter(byteStream), attributesRootElement, N5URL.normalizeAttributePath( key ), attribute, gson);
+			GsonN5Writer.writeAttribute(new OutputStreamWriter(byteStream), attributesRootElement, N5URL.normalizeAttributePath(key), attribute, gson);
 			writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
 		}
 	}
@@ -193,6 +196,9 @@ public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader imple
 			final Map<String, ?> attributes) throws IOException {
 
 		JsonElement root = getAttributes(pathName);
+		if (root == null && !exists(pathName)) {
+			throw new IOException("Group " + pathName + " does not exist");
+		}
 		root = GsonN5Writer.insertAttributes(root, attributes, gson);
 
 		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
