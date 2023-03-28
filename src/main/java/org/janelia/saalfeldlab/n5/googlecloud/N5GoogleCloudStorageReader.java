@@ -176,10 +176,12 @@ public class N5GoogleCloudStorageReader implements GsonN5Reader{
 		this.bucketName = bucketName;
 		this.containerPath = containerPath;
 
-		if (storage.get(bucketName) != null && exists("/")) {
+		if (exists("/")) {
 			final Version version = getVersion();
 			if (!VERSION.isCompatible(version))
 				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
+		} else {
+			throw new IOException("Container at bucket " + bucketName + " and path " + containerPath + " does not exist.");
 		}
 
 	}
