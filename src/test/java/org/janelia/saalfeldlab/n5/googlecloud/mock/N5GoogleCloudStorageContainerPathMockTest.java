@@ -55,26 +55,17 @@ public class N5GoogleCloudStorageContainerPathMockTest extends AbstractN5GoogleC
 
     @Override protected N5Writer createN5Writer() throws IOException {
 
-        return createN5Writer(tempContainerPath());
+        return createTempMockWriter(storage, tempBucketName(), tempContainerPath(), new GsonBuilder());
     }
 
     @Override protected N5Writer createN5Writer(String location) throws IOException {
 
-
-        cleanTemporaryBucket(location);
-        return super.createN5Writer(location);
+        return createTempMockWriter(storage, tempBucketName(), location, new GsonBuilder());
     }
 
     @Override protected N5Writer createN5Writer(String location, GsonBuilder gson) throws IOException {
 
-        cleanTemporaryBucket(location);
-        return super.createN5Writer(location, gson);
-    }
-
-    @Override protected N5Reader createN5Reader(String location, GsonBuilder gson) throws IOException {
-
-        cleanTemporaryBucket(location);
-        return super.createN5Reader(location, gson);
+        return createTempMockWriter(storage, tempBucketName(), location, gson);
     }
 
     @AfterClass

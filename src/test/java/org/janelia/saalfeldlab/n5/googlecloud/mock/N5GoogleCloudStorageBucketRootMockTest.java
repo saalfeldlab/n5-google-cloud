@@ -30,6 +30,7 @@ package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
 import java.io.IOException;
 
+import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageBucketRootTest;
@@ -51,9 +52,7 @@ public class N5GoogleCloudStorageBucketRootMockTest extends AbstractN5GoogleClou
 
     @Override protected N5Writer createN5Writer() throws IOException {
 
-        final String bucketName = tempBucketName();
-        cleanTemporaryBucket("/");
-        return createN5Writer(bucketName);
+        return createTempMockWriter(storage, tempBucketName(), tempContainerPath(), new GsonBuilder());
     }
 
     @Override public void testReaderCreation() throws IOException {
