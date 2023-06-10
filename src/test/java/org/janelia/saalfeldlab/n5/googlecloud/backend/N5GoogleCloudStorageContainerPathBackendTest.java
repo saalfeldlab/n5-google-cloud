@@ -28,11 +28,10 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud.backend;
 
-import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
-import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageContainerPathTest;
-import org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageWriter;
 
 /**
  * Initiates testing of the Google Cloud Storage N5 implementation using actual Google Cloud backend.
@@ -48,8 +47,7 @@ public class N5GoogleCloudStorageContainerPathBackendTest extends AbstractN5Goog
     }
 
     @Override
-    protected N5Writer createN5Writer() throws IOException {
-
-        return new N5GoogleCloudStorageWriter(storage, testBucketName, testContainerPath);
-    }
+	protected String tempN5Location() throws URISyntaxException {
+		return new URI("gs", tempBucketName(), tempContainerPath(), null).toString();
+	}
 }

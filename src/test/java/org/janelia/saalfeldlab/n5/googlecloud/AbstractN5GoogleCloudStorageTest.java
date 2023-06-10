@@ -29,13 +29,21 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.SecureRandom;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.contrib.nio.CloudStorageConfiguration;
+import com.google.gson.GsonBuilder;
 
 /**
  * Base class for testing Google Cloud Storage N5 implementation.
@@ -45,13 +53,65 @@ import com.google.cloud.storage.Storage;
  */
 public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 
-	protected static String testBucketName = "n5-test-" + UUID.randomUUID();
+	private static final SecureRandom random = new SecureRandom();
+
+	private static String generateName(final String prefix, final String suffix) {
+
+		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
+	}
+
+	protected String tempBucketName() {
+
+		return generateName("n5-test-", "-bucket");
+	}
+
+	protected String tempContainerPath() {
+
+		return generateName("/n5-test-", ".n5");
+	}
 
 	protected static Storage storage;
 
 	public AbstractN5GoogleCloudStorageTest(final Storage storage) {
 
 		AbstractN5GoogleCloudStorageTest.storage = storage;
+	}
+
+	@Override
+	protected N5Writer createN5Writer() throws IOException, URISyntaxException {
+
+		return createN5Writer(
+				new URI("gs", tempBucketName(), tempContainerPath(), "").toString(),
+				new GsonBuilder()
+		);
+	}
+
+	@Override
+	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+
+		final GoogleCloudStorageURI uri = new GoogleCloudStorageURI(new URI(location));
+
+		return new N5GoogleCloudStorageWriter(
+				uri.getBucket(),
+				CloudStorageConfiguration.builder().userProject(uri.getProject()).build(),
+				StorageOptions.newBuilder().setServiceFactory(o -> AbstractN5GoogleCloudStorageTest.storage).build(),
+				uri.getKey(),
+				gson,
+				false);
+	}
+
+	@Override
+	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+
+		final GoogleCloudStorageURI uri = new GoogleCloudStorageURI(new URI(location));
+
+		return new N5GoogleCloudStorageReader(
+				uri.getBucket(),
+				CloudStorageConfiguration.builder().userProject(uri.getProject()).build(),
+				StorageOptions.newBuilder().setServiceFactory(o -> AbstractN5GoogleCloudStorageTest.storage).build(),
+				uri.getKey(),
+				gson,
+				false);
 	}
 
 	/**

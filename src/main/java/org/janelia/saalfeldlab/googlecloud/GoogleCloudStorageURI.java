@@ -6,13 +6,13 @@
  * %%
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -33,8 +33,8 @@ import java.util.Map;
 
 import com.google.common.base.Splitter;
 
-public class GoogleCloudStorageURI
-{
+public class GoogleCloudStorageURI {
+
 	private static final String storageHost = "storage.googleapis.com";
 	private static final String googleCloudHost = "googleapis.com";
 	private static final String googleCloudHost2 = "storage.cloud.google.com";
@@ -45,86 +45,78 @@ public class GoogleCloudStorageURI
 	private final String bucketName;
 	private final String objectKey;
 	private final String query;
-	private Map< String, String > queryMap;
+	private Map<String, String> queryMap;
 
-	public GoogleCloudStorageURI( final String str )
-	{
-		this( URI.create( str ) );
+	public GoogleCloudStorageURI(final String str) {
+
+		this(URI.create(str));
 	}
 
-	public GoogleCloudStorageURI( final URI uri )
-	{
+	public GoogleCloudStorageURI(final URI uri) {
+
 		final String path;
-		if ( uri.getScheme().equalsIgnoreCase( "gs" ) )
-		{
+		if (uri.getScheme().equalsIgnoreCase("gs")) {
 			bucketName = uri.getAuthority();
 			objectKey = uri.getPath();
 			query = uri.getQuery();
-		}
-		else if ( uri.getScheme().equalsIgnoreCase( "http" ) || uri.getScheme().equalsIgnoreCase( "https" ) )
-		{
+		} else if (uri.getScheme().equalsIgnoreCase("http") || uri.getScheme().equalsIgnoreCase("https")) {
 			final String host = uri.getHost();
 
-			if( host.equalsIgnoreCase( googleCloudHost ) || host.equalsIgnoreCase( "www." +googleCloudHost ))
-			{
-				if ( !uri.getPath().toLowerCase().startsWith( storagePathPrefix ) )
-					throw new IllegalArgumentException( "Not a google cloud storage link" );
+			if (host.equalsIgnoreCase(googleCloudHost) || host.equalsIgnoreCase("www." + googleCloudHost)) {
+				if (!uri.getPath().toLowerCase().startsWith(storagePathPrefix))
+					throw new IllegalArgumentException("Not a google cloud storage link");
 
-				path = uri.getPath().substring( storagePathPrefix.length() );
-				final int delimeterIndex = path.indexOf( "/" );
+				path = uri.getPath().substring(storagePathPrefix.length());
+				final int delimeterIndex = path.indexOf("/");
 
-				bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
-				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex ) : "";
+				bucketName = path.substring(0, delimeterIndex != -1 ? delimeterIndex : path.length());
+				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring(delimeterIndex)
+						: "";
 				query = uri.getQuery();
-			}
-			else if( host.equalsIgnoreCase( storageHost ) || host.equalsIgnoreCase( googleCloudHost2 ))
-			{
-				path = uri.getPath().indexOf( '/' ) == 0 ? uri.getPath().substring( 1 ) : uri.getPath();
-				final int delimeterIndex = path.indexOf( "/" );
+			} else if (host.equalsIgnoreCase(storageHost) || host.equalsIgnoreCase(googleCloudHost2)) {
+				path = uri.getPath().indexOf('/') == 0 ? uri.getPath().substring(1) : uri.getPath();
+				final int delimeterIndex = path.indexOf("/");
 
-				bucketName = path.substring( 0, delimeterIndex != -1 ? delimeterIndex : path.length() );
-				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring( delimeterIndex ) : "";
+				bucketName = path.substring(0, delimeterIndex != -1 ? delimeterIndex : path.length());
+				objectKey = delimeterIndex != -1 && delimeterIndex < path.length() - 1 ? path.substring(delimeterIndex)
+						: "";
 				query = uri.getQuery();
+			} else {
+				throw new IllegalArgumentException("Not a google cloud storage link");
 			}
-			else
-			{
-				throw new IllegalArgumentException( "Not a google cloud storage link" );	
-			}
-		}
-		else
-		{
-			throw new IllegalArgumentException( "Invalid scheme" );
+		} else {
+			throw new IllegalArgumentException("Invalid scheme");
 		}
 		queryMap = parseQuery();
 	}
 
-	public String getBucket()
-	{
+	public String getBucket() {
+
 		return bucketName;
 	}
 
-	public String getKey()
-	{
+	public String getKey() {
+
 		return objectKey;
 	}
 
-	public String getQuery()
-	{
+	public String getQuery() {
+
 		return query;
 	}
-	
-	public String getProject()
-	{
-		if( queryMap != null && queryMap.containsKey( projectKey ))
-			return queryMap.get( projectKey );
+
+	public String getProject() {
+
+		if (queryMap != null && queryMap.containsKey(projectKey))
+			return queryMap.get(projectKey);
 
 		return null;
 	}
 
-	private Map<String,String> parseQuery()
-	{
-		if( query != null )
-			return Splitter.on( '&' ).trimResults().withKeyValueSeparator( '=' ).split( query );
+	private Map<String, String> parseQuery() {
+
+		if (query != null)
+			return Splitter.on('&').trimResults().withKeyValueSeparator('=').split(query);
 		else
 			return null;
 	}

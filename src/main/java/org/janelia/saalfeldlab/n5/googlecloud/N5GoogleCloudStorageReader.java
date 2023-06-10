@@ -28,347 +28,187 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
+import java.net.URI;
+
+import javax.annotation.Nullable;
 
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.n5.AbstractGsonReader;
-import org.janelia.saalfeldlab.n5.DataBlock;
-import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.DefaultBlockReader;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
-import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.FileSystemKeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
-import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobField;
-import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.cloud.storage.spi.v1.HttpStorageRpc;
+import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.contrib.nio.CloudStorageConfiguration;
+import com.google.cloud.storage.contrib.nio.CloudStorageFileSystem;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
 
 /**
- * N5 implementation using Google Cloud Storage backend with version compatibility check.
+ * Naive Googe Cloud Storage N5 reader through the Google Cloud NIO FileSystem
  *
- * @author Igor Pisarev
+ * TODO replace this with a {@link KeyValueAccess} based implementation to
+ * avoid unnecessary round trips.
+ *
+ * @author Stephan Saalfeld
  */
-public class N5GoogleCloudStorageReader extends AbstractGsonReader implements N5Reader {
-
-	protected static final String jsonFile = "attributes.json";
-
-	protected final Storage storage;
-	protected final String bucketName;
-	protected final String containerPath;
+public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 
 	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name.
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
 	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
 	 * @param bucketName
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName) throws IOException {
-
-		this(storage, bucketName, new GsonBuilder());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client, a given bucket name,
-	 * and a path to the container within the bucket.
-	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param containerPath
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String containerPath) throws IOException {
-
-		this(storage, bucketName, containerPath, new GsonBuilder());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given Google Cloud Storage URI.
-	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param containerURI
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final GoogleCloudStorageURI containerURI) throws IOException {
-
-		this(storage, containerURI, new GsonBuilder());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given Google Cloud Storage URI
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param containerURI
+	 *            the Google Cloud bucket
+	 * @param config
+	 *            the Google Cloud Storage configuration
+	 * @param config
+	 *            the Google Cloud Storage options
+	 * @param basePath
+	 *            N5 base path inside the bucket
 	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final GoogleCloudStorageURI containerURI, final GsonBuilder gsonBuilder) throws IOException {
-
-		this(storage, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 * @throws
 	 *
-	 * If the bucket does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		this(storage, bucketName, "/", gsonBuilder);
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageReader} using a {@link Storage} client, a given bucket name,
-	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * If the bucket and/or container does not exist, it will not be created and
-	 * all subsequent attempts to read attributes, groups, or datasets will fail.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param containerPath
-	 * @param gsonBuilder
-	 * @throws IOException
 	 */
 	public N5GoogleCloudStorageReader(
-			final Storage storage,
 			final String bucketName,
-			final String containerPath,
-			final GsonBuilder gsonBuilder) throws IOException {
+			final CloudStorageConfiguration config,
+			@Nullable final StorageOptions storageOptions,
+			final String basePath,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		super(gsonBuilder);
-
-		this.storage = storage;
-		this.bucketName = bucketName;
-		this.containerPath = containerPath;
-
-		if (storage.get(bucketName) != null) {
-			final Version version = getVersion();
-			if (!VERSION.isCompatible(version))
-				throw new IOException("Incompatible version " + version + " (this is " + VERSION + ").");
-		}
+		super(
+				new FileSystemKeyValueAccess(CloudStorageFileSystem.forBucket(bucketName, config, storageOptions)),
+				basePath,
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public boolean exists(final String pathName) {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param googleCloudStorageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageReader(
+			final GoogleCloudStorageURI googleCloudStorageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final String fullPath = getFullPath(pathName);
-		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
-		final BlobListOption[] blobListOptions = allOperationsSupported() ?
-				new BlobListOption[] { BlobListOption.prefix(prefix), BlobListOption.pageSize(1) } :
-					new BlobListOption[] { BlobListOption.prefix(prefix) };
-		final Page<Blob> blobListing = storage.list(bucketName, blobListOptions);
-		return blobListing.getValues().iterator().hasNext();
+		this(
+				googleCloudStorageURI.getBucket(),
+				CloudStorageConfiguration.builder().userProject(googleCloudStorageURI.getProject()).build(),
+				null,
+				googleCloudStorageURI.getKey(),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public HashMap<String, JsonElement> getAttributes(final String pathName) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param storageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageReader(
+			final URI storageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final String attributesKey = getAttributesKey(pathName);
-		final Blob attributesBlob = getBlob(attributesKey);
-		if (!blobExists(attributesBlob))
-			return new HashMap<>();
-
-		try (final InputStream in = readBlob(attributesBlob)) {
-			return GsonAttributesParser.readAttributes(new InputStreamReader(in), gson);
-		}
+		this(
+				new GoogleCloudStorageURI(storageURI),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public DataBlock<?> readBlock(
-			final String pathName,
-			final DatasetAttributes datasetAttributes,
-			final long... gridPosition) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param storageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageReader(
+			final String storageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
-		final Blob dataBlockBlob = getBlob(dataBlockKey);
-		if (!blobExists(dataBlockBlob))
-			return null;
-
-		try (final InputStream in = readBlob(dataBlockBlob)) {
-			return DefaultBlockReader.readBlock(in, datasetAttributes, gridPosition);
-		}
+		this(
+				new GoogleCloudStorageURI(storageURI),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public String[] list(final String pathName) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param config
+	 *            the Google Cloud Storage configuration
+	 * @param config
+	 *            the Google Cloud Storage options
+	 * @param basePath
+	 *            N5 base path inside the bucket
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageReader(
+			final String bucketName,
+			final String basePath,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final String fullPath = getFullPath(pathName);
-		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
-		final Path path = Paths.get(prefix);
-
-		final List<String> subGroups = new ArrayList<>();
-		final Page<Blob> blobListing = storage.list(
+		this(
 				bucketName,
-				BlobListOption.prefix(prefix),
-				BlobListOption.currentDirectory(),
-				BlobListOption.fields(BlobField.ID));
-		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext();) {
-			final Blob nextBlob = blobIterator.next();
-			final String blobName = nextBlob.getBlobId().getName();
-			if (blobName.endsWith("/")) {
-				final Path relativePath = path.relativize(Paths.get(blobName));
-				final String correctedSubgroupPathName = replaceBackSlashes(relativePath.toString());
-				if (!correctedSubgroupPathName.isEmpty())
-					subGroups.add(correctedSubgroupPathName);
-			}
-		}
-		return subGroups.toArray(new String[subGroups.size()]);
-	}
-
-	protected Blob getBlob(final String blobKey) {
-
-		return storage.get(BlobId.of(bucketName, blobKey));
-	}
-
-	protected InputStream readBlob(final Blob blob) {
-
-		final byte[] bytes = blob.getContent();
-		return new ByteArrayInputStream(bytes);
-	}
-
-	protected boolean blobExists(final Blob blob) {
-
-		return blob != null && blob.exists();
-	}
-
-	protected boolean allOperationsSupported() {
-
-		// some operations are not supported in the mock library, need to check whether a real or a fake client is being used
-		// would be better to check against FakeStorageRpc, but it is not desired to include the mock library as a non-test dependency
-		return storage.getOptions().getRpc() instanceof HttpStorageRpc;
-	}
-
-	/**
-	 * Google Cloud service accepts only forward slashes as path delimiters.
-	 * This method replaces back slashes to forward slashes (if any) and returns a corrected path name.
-	 *
-	 * @param pathName
-	 * @return
-	 */
-	protected static String replaceBackSlashes(final String pathName) {
-
-		return pathName.replace("\\", "/");
-	}
-
-	/**
-	 * When absolute paths are passed (e.g. /group/data), Google Cloud service creates an additional root folder with an empty name.
-	 * This method removes the root slash symbol and returns the corrected path.
-	 *
-	 * Additionally, it ensures correctness on both Unix and Windows platforms, otherwise {@code pathName} is treated
-	 * as UNC path on Windows, and {@code Paths.get(pathName, ...)} fails with {@code InvalidPathException}.
-	 *
-	 * @param pathName
-	 * @return
-	 */
-	protected static String removeLeadingSlash(final String pathName) {
-
-		return pathName.startsWith("/") || pathName.startsWith("\\") ? pathName.substring(1) : pathName;
-	}
-
-	/**
-	 * When listing children objects for a group, must append a delimiter to the path (e.g. group/data/).
-	 * This is necessary for not including wrong objects in the filtered set
-	 * (e.g. group/data-2/attributes.json when group/data is passed without the last slash).
-	 *
-	 * @param pathName
-	 * @return
-	 */
-	protected static String addTrailingSlash(final String pathName) {
-
-		return pathName.endsWith("/") || pathName.endsWith("\\") ? pathName : pathName + "/";
-	}
-
-	/**
-	 * Constructs the path for a data block in a dataset at a given grid position.
-	 *
-	 * The returned path is
-	 * <pre>
-	 * $datasetPathName/$gridPosition[0]/$gridPosition[1]/.../$gridPosition[n]
-	 * </pre>
-	 *
-	 * This is the file into which the data block will be stored.
-	 *
-	 * @param datasetPathName
-	 * @param gridPosition
-	 * @return
-	 */
-	protected String getDataBlockKey(
-			final String datasetPathName,
-			final long... gridPosition) {
-
-		final String[] pathComponents = new String[gridPosition.length];
-		for (int i = 0; i < pathComponents.length; ++i)
-			pathComponents[i] = Long.toString(gridPosition[i]);
-
-		final String dataBlockPathName = Paths.get(removeLeadingSlash(datasetPathName), pathComponents).toString();
-		return getFullPath(dataBlockPathName);
-	}
-
-	/**
-	 * Constructs a full path for a path that is relative to the container.
-	 *
-	 * @param relativePath
-	 * @return
-	 */
-	protected String getFullPath(final String relativePath) {
-
-		final String fullPath = Paths.get(removeLeadingSlash(containerPath), relativePath).toString();
-		return removeLeadingSlash(replaceBackSlashes(fullPath));
-	}
-
-	/**
-	 * Constructs the path for the attributes file of a group or dataset.
-	 *
-	 * @param pathName
-	 * @return
-	 */
-	protected String getAttributesKey(final String pathName) {
-
-		final String attributesPath = Paths.get(removeLeadingSlash(pathName), jsonFile).toString();
-		return getFullPath(attributesPath);
-	}
-
-	/**
-	 * Determines whether the current N5 container is stored at the root level of the bucket.
-	 *
-	 * @return
-	 */
-	protected boolean isContainerBucketRoot() {
-		return removeLeadingSlash(containerPath).isEmpty();
+				CloudStorageConfiguration.DEFAULT,
+				null,
+				basePath,
+				gsonBuilder,
+				cacheMeta);
 	}
 }

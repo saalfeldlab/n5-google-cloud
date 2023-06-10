@@ -29,19 +29,35 @@
 package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageBucketRootTest;
+import org.junit.BeforeClass;
 
 /**
- * Initiates testing of the Google Cloud Storage N5 implementation using mock library.
- * The test N5 container is created at the root of the new temporary bucket.
+ * Initiates testing of the Google Cloud Storage N5 implementation using mock
+ * library. The test N5 container is created at the root of the new temporary
+ * bucket.
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
 public class N5GoogleCloudStorageBucketRootMockTest extends AbstractN5GoogleCloudStorageBucketRootTest {
 
-    public N5GoogleCloudStorageBucketRootMockTest() throws IOException {
+	@BeforeClass
+	public static void createStorage() throws IOException {
 
-        super(MockGoogleCloudStorageFactory.getOrCreateStorage());
-    }
+		storage = MockGoogleCloudStorageFactory.getOrCreateStorage();
+	}
+
+	public N5GoogleCloudStorageBucketRootMockTest() throws IOException {
+
+		super(MockGoogleCloudStorageFactory.getOrCreateStorage());
+	}
+
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+
+		return new URI("gs", tempBucketName(), "/", null).toString();
+	}
 }

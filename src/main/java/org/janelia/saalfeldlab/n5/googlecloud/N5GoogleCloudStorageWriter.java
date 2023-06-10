@@ -28,225 +28,318 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.net.URI;
+
+import javax.annotation.Nullable;
 
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.n5.DataBlock;
-import org.janelia.saalfeldlab.n5.DatasetAttributes;
-import org.janelia.saalfeldlab.n5.DefaultBlockWriter;
-import org.janelia.saalfeldlab.n5.GsonAttributesParser;
+import org.janelia.saalfeldlab.n5.FileSystemKeyValueAccess;
+import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 import org.janelia.saalfeldlab.n5.N5Writer;
 
-import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BucketInfo;
+import com.google.cloud.storage.BucketInfo.Builder;
 import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageClass;
+import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.storage.contrib.nio.CloudStorageConfiguration;
+import com.google.cloud.storage.contrib.nio.CloudStorageFileSystem;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonElement;
 
 /**
  * N5 implementation using Google Cloud Storage backend with version compatibility check.
  *
  * @author Igor Pisarev
  */
-public class N5GoogleCloudStorageWriter extends N5GoogleCloudStorageReader implements N5Writer {
+public class N5GoogleCloudStorageWriter extends N5KeyValueWriter implements N5Writer {
 
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given bucket name.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName) throws IOException {
+	private static final String tryCreateBucket(
+			final String bucketName,
+			final CloudStorageConfiguration config,
+			@Nullable final StorageOptions storageOptions,
+			@Nullable final StorageClass storageClass,
+			@Nullable final String location) {
 
-		this(storage, bucketName, new GsonBuilder());
+		String projectId = storageOptions == null ? null : storageOptions.getProjectId();
+		if (projectId == null)
+			projectId = config.userProject();
+//		if (projectId == null) {
+//			final ResourceManager resourceManager = new GoogleCloudResourceManagerClient().create();
+//			final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
+//			if (projectId == null) {
+//				if (!projectsIterator.hasNext())
+//					projectId = null;
+//				else
+//					projectId = projectsIterator.next().getProjectId();
+//			}
+//		}
+
+		final Storage storage = storageOptions.getService();
+
+		return createBucket(
+				storage,
+				bucketName,
+				projectId,
+				storageClass,
+				location);
+
 	}
 
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client, a given bucket name,
-	 * and a path to the container within the bucket.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param containerPath
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final String containerPath) throws IOException {
-
-		this(storage, bucketName, containerPath, new GsonBuilder());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given Google Cloud Storage URI.
-	 *
-	 * @param storage
-	 * @param containerURI
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final GoogleCloudStorageURI containerURI) throws IOException {
-
-		this(storage, containerURI, new GsonBuilder());
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client and a given Google Cloud Storage URI
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * @param storage
-	 * @param containerURI
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final GoogleCloudStorageURI containerURI, final GsonBuilder gsonBuilder) throws IOException {
-
-		this(storage, containerURI.getBucket(), containerURI.getKey(), gsonBuilder);
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using an{@link Storage} client and a given bucket name
-	 * with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
-
-		this(storage, bucketName, "/", gsonBuilder);
-	}
-
-	/**
-	 * Opens an {@link N5GoogleCloudStorageWriter} using a {@link Storage} client, a given bucket name,
-	 * and a path to the container within the bucket with a custom {@link GsonBuilder} to support custom attributes.
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param containerPath
-	 * @param gsonBuilder
-	 * @throws IOException
-	 */
-	public N5GoogleCloudStorageWriter(
+	private static final String createBucket(
 			final Storage storage,
 			final String bucketName,
+			final String projectId,
+			@Nullable final StorageClass storageClass,
+			@Nullable final String location) {
+
+		if (storage.get(bucketName) == null) {
+			final Builder builder = BucketInfo.newBuilder(bucketName);
+			if (storageClass != null) builder.setStorageClass(storageClass);
+			if (location != null) builder.setLocation(location);
+
+			storage.create(builder.build());
+		}
+		return bucketName;
+	}
+
+	/**
+	 * Opens an {@link N5GoogleCloudStorageReader} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param config
+	 *            the Google Cloud Storage configuration
+	 * @param config
+	 *            the Google Cloud Storage options
+	 * @param containerPath
+	 *            N5 base path inside the bucket
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 * @throws
+	 *
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String bucketName,
+			final CloudStorageConfiguration config,
+			@Nullable final StorageOptions storageOptions,
 			final String containerPath,
-			final GsonBuilder gsonBuilder) throws IOException {
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		super(storage, bucketName, containerPath, gsonBuilder);
+		super(
+				new FileSystemKeyValueAccess(
+						CloudStorageFileSystem.forBucket(
+								tryCreateBucket(bucketName, config, storageOptions, null, null), config, storageOptions)),
+				containerPath,
+				gsonBuilder,
+				cacheMeta);
 
-		if (allOperationsSupported() && storage.get(bucketName) == null)
-			storage.create(BucketInfo.of(bucketName));
-
-		if (!isContainerBucketRoot() && !exists("/"))
+		if (!exists("/"))
 			createGroup("/");
 
 		if (!VERSION.equals(getVersion()))
 			setAttribute("/", VERSION_KEY, VERSION.toString());
 	}
 
-	@Override
-	public void createGroup(final String pathName) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param googleCloudStorageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageWriter(
+			final GoogleCloudStorageURI googleCloudStorageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final Path groupPath = Paths.get(removeLeadingSlash(pathName));
-		for (int i = 0; i < groupPath.getNameCount(); ++i) {
-			final String parentGroupPath = groupPath.subpath(0, i + 1).toString();
-			final String fullParentGroupPath = getFullPath(parentGroupPath);
-			writeBlob(replaceBackSlashes(addTrailingSlash(removeLeadingSlash(fullParentGroupPath))), null);
-		}
+		this(
+				googleCloudStorageURI.getBucket(),
+				CloudStorageConfiguration.builder().userProject(googleCloudStorageURI.getProject()).build(),
+				null,
+				googleCloudStorageURI.getKey(),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public void setAttributes(
-			final String pathName,
-			final Map<String, ?> attributes) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param storageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageWriter(
+			final URI storageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final HashMap<String, JsonElement> map = getAttributes(pathName);
-		GsonAttributesParser.insertAttributes(map, attributes, gson);
-
-		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			GsonAttributesParser.writeAttributes(new OutputStreamWriter(byteStream), map, gson);
-			writeBlob(getAttributesKey(pathName), byteStream.toByteArray());
-		}
+		this(
+				new GoogleCloudStorageURI(storageURI),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public <T> void writeBlock(
-			final String pathName,
-			final DatasetAttributes datasetAttributes,
-			final DataBlock<T> dataBlock) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param storageURI
+	 *            the Google Cloud Storage URI
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String storageURI,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		try (final ByteArrayOutputStream byteStream = new ByteArrayOutputStream()) {
-			DefaultBlockWriter.writeBlock(byteStream, datasetAttributes, dataBlock);
-			writeBlob(getDataBlockKey(pathName, dataBlock.getGridPosition()), byteStream.toByteArray());
-		}
+		this(
+				new GoogleCloudStorageURI(storageURI),
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public boolean deleteBlock(final String pathName, final long... gridPosition) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param containerPath
+	 *            N5 base path inside the bucket
+	 * @param gsonBuilder
+	 *            the gson builder
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder,
+			final boolean cacheMeta) {
 
-		final String dataBlockKey = getDataBlockKey(pathName, gridPosition);
-		final Blob dataBlockBlob = getBlob(dataBlockKey);
-		if (blobExists(dataBlockBlob))
-			dataBlockBlob.delete();
-		return !blobExists(dataBlockBlob);
+		this(
+				bucketName,
+				CloudStorageConfiguration.DEFAULT,
+				null,
+				containerPath,
+				gsonBuilder,
+				cacheMeta);
 	}
 
-	@Override
-	public boolean remove() throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param containerPath
+	 *            N5 base path inside the bucket
+	 * @param gsonBuilder
+	 *            the gson builder
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String bucketName,
+			final String containerPath,
+			final GsonBuilder gsonBuilder) {
 
-		// the mock library always returns false for buckets, account for that when returning the final status
-		final boolean wasBucketFound = storage.get(bucketName) != null;
-		final boolean wasPathRemoved = remove("/");
-
-		if (!isContainerBucketRoot() || !wasPathRemoved)
-			return wasPathRemoved;
-
-		// N5 container was at the root level of the bucket so the bucket needs to be removed as well
-		final boolean wasBucketRemoved = storage.delete(bucketName);
-		return wasBucketFound ? wasBucketRemoved : true;
+		this(
+				bucketName,
+				CloudStorageConfiguration.DEFAULT,
+				null,
+				containerPath,
+				gsonBuilder,
+				true);
 	}
 
-	@Override
-	public boolean remove(final String pathName) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param containerPath
+	 *            N5 base path inside the bucket
+	 * @param cacheMeta
+	 *            cache attributes and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This is most interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer on the same container will not be tracked.
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String bucketName,
+			final String containerPath,
+			final boolean cacheMeta) {
 
-		final String fullPath = getFullPath(pathName);
-		final String prefix = fullPath.isEmpty() ? "" : addTrailingSlash(fullPath);
-
-		final List<BlobId> subBlobs = new ArrayList<>();
-		final Page<Blob> blobListing = storage.list(bucketName, BlobListOption.prefix(prefix));
-		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext();) {
-			final Blob nextBlob = blobIterator.next();
-			subBlobs.add(nextBlob.getBlobId());
-		}
-
-		if (allOperationsSupported()) {
-			storage.delete(subBlobs);
-		} else {
-			for (final BlobId blobId : subBlobs)
-				storage.delete(blobId);
-		}
-
-		return !exists(pathName);
+		this(
+				bucketName,
+				CloudStorageConfiguration.DEFAULT,
+				null,
+				containerPath,
+				new GsonBuilder(),
+				cacheMeta);
 	}
 
-	protected void writeBlob(
-			final String blobKey,
-			final byte[] bytes) throws IOException {
+	/**
+	 * Opens an {@link N5GoogleCloudStorageWriter} with a custom {@link GsonBuilder}
+	 * to support custom attributes.
+	 *
+	 * @param bucketName
+	 *            the Google Cloud bucket
+	 * @param containerPath
+	 *            N5 base path inside the bucket
+	 */
+	public N5GoogleCloudStorageWriter(
+			final String bucketName,
+			final String containerPath) {
 
-		final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, blobKey).build();
-		storage.create(blobInfo, bytes);
+		this(
+				bucketName,
+				CloudStorageConfiguration.DEFAULT,
+				null,
+				containerPath,
+				new GsonBuilder(),
+				true);
 	}
 }
