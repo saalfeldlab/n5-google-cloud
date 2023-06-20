@@ -29,7 +29,6 @@
 package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
 import java.io.IOException;
-
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageBucketRootTest;
 
 /**
@@ -44,4 +43,5 @@ public class N5GoogleCloudStorageBucketRootMockTest extends AbstractN5GoogleClou
 
         super(MockGoogleCloudStorageFactory.getOrCreateStorage());
     }
+
 }

@@ -30,34 +30,27 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import java.io.IOException;
 
-import org.janelia.saalfeldlab.n5.N5Writer;
+import java.net.URI;
+import java.net.URISyntaxException;
 import org.junit.AfterClass;
-import org.junit.Assert;
 
 import com.google.cloud.storage.Storage;
 
 public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends AbstractN5GoogleCloudStorageTest {
-
-    protected static String testContainerPath = "/test/container/";
 
     public AbstractN5GoogleCloudStorageContainerPathTest(final Storage storage) {
 
         super(storage);
     }
 
-    @Override
-    protected N5Writer createN5Writer() throws IOException {
-
-        return new N5GoogleCloudStorageWriter(storage, testBucketName, testContainerPath);
-    }
+	@Override
+	protected String tempN5Location() throws URISyntaxException {
+		return new URI("gs", tempBucketName(), tempContainerPath(), null).toString();
+	}
 
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
-        Assert.assertNotNull(storage.get(testBucketName));
-        Assert.assertNull(storage.get(testBucketName, "test/"));
-        new N5GoogleCloudStorageWriter(storage, testBucketName).remove();
-        Assert.assertNull(storage.get(testBucketName));
     }
 }

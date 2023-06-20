@@ -28,10 +28,16 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
+import com.google.gson.GsonBuilder;
 import java.io.IOException;
-import java.util.UUID;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.SecureRandom;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Reader;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -45,8 +51,6 @@ import com.google.cloud.storage.Storage;
  */
 public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 
-	protected static String testBucketName = "n5-test-" + UUID.randomUUID();
-
 	protected static Storage storage;
 
 	public AbstractN5GoogleCloudStorageTest(final Storage storage) {
@@ -54,8 +58,43 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		AbstractN5GoogleCloudStorageTest.storage = storage;
 	}
 
+	private static final SecureRandom random = new SecureRandom();
+
+	private static String generateName(String prefix, String suffix) {
+
+		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
+	}
+
+	protected String tempBucketName() {
+
+		return generateName("n5-test-", "-bucket");
+	}
+
+	protected String tempContainerPath() {
+
+		return generateName("/n5-test-", ".n5");
+	}
+
+	@Override
+	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+
+		final URI uri = new URI(location);
+		final String bucketName = uri.getHost();
+		final String basePath = uri.getPath();
+		return new N5GcsWriter(storage, bucketName, basePath, gson);
+	}
+
+	@Override
+	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+
+		final URI uri = new URI(location);
+		final String bucketName = uri.getHost();
+		final String basePath = uri.getPath();
+		return new N5GcsReader(storage, bucketName, basePath, gson);
+	}
+
 	/**
-	 * Currently, {@code N5GoogleCloudStorageReader#exists(String)} is implemented by listing objects under that group.
+	 * Currently, {@code N5AmazonS3Reader#exists(String)} is implemented by listing objects under that group.
 	 * This test case specifically tests its correctness.
 	 *
 	 * @throws IOException
@@ -88,11 +127,12 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		Assert.assertFalse(n5.exists("/one/tw"));
 		Assert.assertFalse(n5.exists("/one/tw/"));
 
-		Assert.assertArrayEquals(new String[] {"one"}, n5.list("/"));
-		Assert.assertArrayEquals(new String[] {"two"}, n5.list("/one"));
-		Assert.assertArrayEquals(new String[] {"three"}, n5.list("/one/two"));
-		Assert.assertArrayEquals(new String[] {}, n5.list("/one/two/three"));
-		Assert.assertArrayEquals(new String[] {}, n5.list("/one/tw"));
+		Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
+		Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
+		Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
+
+		Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
+		Assert.assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
 
 		Assert.assertTrue(n5.remove("/one/two/three"));
 		Assert.assertFalse(n5.exists("/one/two/three"));
