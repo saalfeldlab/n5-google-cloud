@@ -285,12 +285,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				BlobListOption.prefix(prefix),
 				BlobListOption.fields(BlobField.ID));
 
-		page.iterateAll().forEach(Blob::delete);
-		// TODO: it would be probably better to do this in batches but the mock api doesn't implement that ...
-//		while (page != null) {
-//			storage.delete(page.streamValues().map(Blob::getBlobId).toArray(BlobId[]::new));
-//			page = page.getNextPage();
-//		}
+		while (page != null) {
+			storage.delete(page.streamValues().map(Blob::getBlobId).toArray(BlobId[]::new));
+			page = page.getNextPage();
+		}
 	}
 
 

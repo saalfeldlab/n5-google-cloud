@@ -56,6 +56,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -148,6 +149,14 @@ public class MockGoogleCloudStorageFactory {
 			}
 		}
 
+		@Override
+		public List<Boolean> delete(final BlobId... blobIds) {
+			List<Boolean> results = new ArrayList<>();
+			for (BlobId blobId : blobIds) {
+				results.add(delegate.delete(blobId));
+			}
+			return results;
+		}
 
 		// -- forward to delegate --
 
@@ -355,11 +364,6 @@ public class MockGoogleCloudStorageFactory {
 		@Override
 		public List<Blob> update(final Iterable<BlobInfo> blobInfos) {
 			return delegate.update(blobInfos);
-		}
-
-		@Override
-		public List<Boolean> delete(final BlobId... blobIds) {
-			return delegate.delete(blobIds);
 		}
 
 		@Override
