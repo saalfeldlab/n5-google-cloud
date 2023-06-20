@@ -81,7 +81,7 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
 		final String basePath = uri.getPath();
-		return new N5GcsWriter(storage, bucketName, basePath, gson);
+		return new N5GoogleCloudStorageWriter(storage, bucketName, basePath, gson);
 	}
 
 	@Override
@@ -90,7 +90,7 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
 		final String basePath = uri.getPath();
-		return new N5GcsReader(storage, bucketName, basePath, gson);
+		return new N5GoogleCloudStorageReader(storage, bucketName, basePath, gson);
 	}
 
 	/**

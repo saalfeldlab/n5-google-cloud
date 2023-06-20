@@ -9,14 +9,10 @@ import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobListOption;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
@@ -24,8 +20,6 @@ import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -36,8 +30,7 @@ import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 
-// TODO: rename to GoogleCloudStorageKeyValueAccess
-public class GoogleCloudKeyValueAccess implements KeyValueAccess {
+public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private final Storage storage;
 	private final String bucketName;
@@ -50,7 +43,7 @@ public class GoogleCloudKeyValueAccess implements KeyValueAccess {
 	 * @param createBucket
 	 * @throws N5Exception.N5IOException
 	 */
-	public GoogleCloudKeyValueAccess(final Storage storage, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
+	public GoogleCloudStorageKeyValueAccess(final Storage storage, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
 
 		this.storage = storage;
 		this.bucketName = bucketName;
