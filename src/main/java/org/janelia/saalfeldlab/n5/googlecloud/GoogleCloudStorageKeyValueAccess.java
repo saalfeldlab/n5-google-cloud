@@ -267,27 +267,37 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
-		// remove bucket when deleting "/"
-		if (normalPath.equals(normalize("/"))) {
-			storage.delete(bucketName);
-			return;
-		}
-
 		final String path = removeLeadingSlash(normalPath);
 
 		if (!path.endsWith("/")) {
 			storage.delete(BlobId.of(bucketName, path));
 		}
 
-		final String prefix = addTrailingSlash(path);
+
+		/*
+		 * TODO consider instead using Object Lifecycle Management when deleting many items see:
+		 * https://cloud.google.com/storage/docs/deleting-objects#delete-objects-in-bulk
+		 */
 		Page<Blob> page = storage.list(
 				bucketName,
-				BlobListOption.prefix(prefix),
+				BlobListOption.prefix(path),
 				BlobListOption.fields(BlobField.ID));
 
 		while (page != null) {
-			storage.delete(page.streamValues().map(Blob::getBlobId).toArray(BlobId[]::new));
+			final BlobId[] ids = page.streamValues().map(Blob::getBlobId).toArray(BlobId[]::new);
+			if( ids.length > 0 ) // storage throws an error if ids is empty
+				storage.delete(ids);
 			page = page.getNextPage();
+		}
+
+		/* remove bucket when deleting the root "/"
+		 * this needs to happen at the end because a bucket must be empty before it is deleted
+		 *
+		 * Buckets cannot be removed here if Object Lifecycle Management is used to delete objects.
+		 */
+		if (normalPath.equals(normalize("/"))) {
+			storage.delete(bucketName);
+			return;
 		}
 	}
 
