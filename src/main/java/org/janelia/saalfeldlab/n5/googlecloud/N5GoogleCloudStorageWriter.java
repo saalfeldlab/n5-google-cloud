@@ -3,6 +3,8 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import com.google.cloud.storage.Storage;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
+
+import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 
 /**
@@ -80,5 +82,13 @@ public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
 	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName) throws IOException {
 
 		this(storage, bucketName, "/", new GsonBuilder());
+	}
+
+	@Override public boolean remove() throws N5Exception {
+
+		if (exists("/"))
+			return super.remove();
+		else
+			return true;
 	}
 }
