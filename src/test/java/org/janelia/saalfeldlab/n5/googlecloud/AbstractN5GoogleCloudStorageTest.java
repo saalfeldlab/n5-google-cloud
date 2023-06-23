@@ -43,6 +43,9 @@ import org.junit.Test;
 
 import com.google.cloud.storage.Storage;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+
 /**
  * Base class for testing Google Cloud Storage N5 implementation.
  * Tests that are specific to Google Cloud can be added here.
@@ -94,7 +97,7 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 	}
 
 	/**
-	 * Currently, {@code N5AmazonS3Reader#exists(String)} is implemented by listing objects under that group.
+	 * Currently, {@code N5GoogleCloudStorageReader#exists(String)} is implemented by listing objects under that group.
 	 * This test case specifically tests its correctness.
 	 *
 	 * @throws IOException
@@ -132,7 +135,7 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
 
 		Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
-		Assert.assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
+		assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
 
 		Assert.assertTrue(n5.remove("/one/two/three"));
 		Assert.assertFalse(n5.exists("/one/two/three"));
@@ -142,5 +145,42 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		Assert.assertTrue(n5.remove("/one"));
 		Assert.assertFalse(n5.exists("/one/two"));
 		Assert.assertFalse(n5.exists("/one"));
+	}
+
+	@Override
+	@Test public void testReaderCreation() throws IOException, URISyntaxException {
+
+		try (N5Writer writer = createN5Writer()) {
+			final String canonicalPath = writer.getURI().toString();
+
+
+			final N5Reader n5r = createN5Reader(canonicalPath);
+			assertNotNull(n5r);
+
+			// existing directory without attributes is okay;
+			// Remove and create to remove attributes store
+			writer.removeAttribute("/", "/");
+			final N5Reader na = createN5Reader(canonicalPath);
+			assertNotNull(na);
+
+			// existing location with attributes, but no version
+			writer.removeAttribute("/", "/");
+			writer.setAttribute("/", "mystring", "ms");
+			final N5Reader wa = createN5Reader(canonicalPath);
+			assertNotNull(wa);
+
+			// existing directory with incompatible version should fail
+			writer.removeAttribute("/", "/");
+			writer.setAttribute("/", N5Reader.VERSION_KEY,
+					new N5Reader.Version(N5Reader.VERSION.getMajor() + 1, N5Reader.VERSION.getMinor(), N5Reader.VERSION.getPatch()).toString());
+			assertThrows("Incompatible version throws error", IOException.class,
+					() -> {
+						createN5Reader(canonicalPath);
+					});
+			writer.remove();
+		}
+		/* In the AbstractN5Test class, there is a final test to ensure the reader creation fails if the container doesn't exist.
+		* Unfortunately, the google cloud storage test framework doesn't support that during testing,
+		* so we cannot support it. If future cloud store testing frameworks support creating mock buckets, we can test then. */
 	}
 }
