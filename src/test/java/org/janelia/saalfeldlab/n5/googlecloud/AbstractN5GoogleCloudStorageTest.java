@@ -78,6 +78,21 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
+	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
+
+		final URI uri = new URI(tempN5Location());
+		final String bucketName = uri.getHost();
+		final String basePath = uri.getPath();
+		return new N5GoogleCloudStorageWriter(storage, bucketName, basePath, new GsonBuilder()) {
+
+			@Override public void close() {
+
+				remove();
+				super.close();
+			}
+		};
+	}
+
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
@@ -103,48 +118,50 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 	 * @throws IOException
 	 */
 	@Test
-	public void testExistsUsingListingObjects() throws IOException {
+	public void testExistsUsingListingObjects() throws IOException, URISyntaxException {
 
-		n5.createGroup("/one/two/three");
+		try (N5Writer n5 = createN5Writer()) {
+			n5.createGroup("/one/two/three");
 
-		Assert.assertTrue(n5.exists(""));
-		Assert.assertTrue(n5.exists("/"));
+			Assert.assertTrue(n5.exists(""));
+			Assert.assertTrue(n5.exists("/"));
 
-		Assert.assertTrue(n5.exists("one"));
-		Assert.assertTrue(n5.exists("one/"));
-		Assert.assertTrue(n5.exists("/one"));
-		Assert.assertTrue(n5.exists("/one/"));
+			Assert.assertTrue(n5.exists("one"));
+			Assert.assertTrue(n5.exists("one/"));
+			Assert.assertTrue(n5.exists("/one"));
+			Assert.assertTrue(n5.exists("/one/"));
 
-		Assert.assertTrue(n5.exists("one/two"));
-		Assert.assertTrue(n5.exists("one/two/"));
-		Assert.assertTrue(n5.exists("/one/two"));
-		Assert.assertTrue(n5.exists("/one/two/"));
+			Assert.assertTrue(n5.exists("one/two"));
+			Assert.assertTrue(n5.exists("one/two/"));
+			Assert.assertTrue(n5.exists("/one/two"));
+			Assert.assertTrue(n5.exists("/one/two/"));
 
-		Assert.assertTrue(n5.exists("one/two/three"));
-		Assert.assertTrue(n5.exists("one/two/three/"));
-		Assert.assertTrue(n5.exists("/one/two/three"));
-		Assert.assertTrue(n5.exists("/one/two/three/"));
+			Assert.assertTrue(n5.exists("one/two/three"));
+			Assert.assertTrue(n5.exists("one/two/three/"));
+			Assert.assertTrue(n5.exists("/one/two/three"));
+			Assert.assertTrue(n5.exists("/one/two/three/"));
 
-		Assert.assertFalse(n5.exists("one/tw"));
-		Assert.assertFalse(n5.exists("one/tw/"));
-		Assert.assertFalse(n5.exists("/one/tw"));
-		Assert.assertFalse(n5.exists("/one/tw/"));
+			Assert.assertFalse(n5.exists("one/tw"));
+			Assert.assertFalse(n5.exists("one/tw/"));
+			Assert.assertFalse(n5.exists("/one/tw"));
+			Assert.assertFalse(n5.exists("/one/tw/"));
 
-		Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
-		Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
-		Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
+			Assert.assertArrayEquals(new String[]{"one"}, n5.list("/"));
+			Assert.assertArrayEquals(new String[]{"two"}, n5.list("/one"));
+			Assert.assertArrayEquals(new String[]{"three"}, n5.list("/one/two"));
 
-		Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
-		assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
+			Assert.assertArrayEquals(new String[]{}, n5.list("/one/two/three"));
+			assertThrows(N5Exception.N5IOException.class, () -> n5.list("/one/tw"));
 
-		Assert.assertTrue(n5.remove("/one/two/three"));
-		Assert.assertFalse(n5.exists("/one/two/three"));
-		Assert.assertTrue(n5.exists("/one/two"));
-		Assert.assertTrue(n5.exists("/one"));
+			Assert.assertTrue(n5.remove("/one/two/three"));
+			Assert.assertFalse(n5.exists("/one/two/three"));
+			Assert.assertTrue(n5.exists("/one/two"));
+			Assert.assertTrue(n5.exists("/one"));
 
-		Assert.assertTrue(n5.remove("/one"));
-		Assert.assertFalse(n5.exists("/one/two"));
-		Assert.assertFalse(n5.exists("/one"));
+			Assert.assertTrue(n5.remove("/one"));
+			Assert.assertFalse(n5.exists("/one/two"));
+			Assert.assertFalse(n5.exists("/one"));
+		}
 	}
 
 	@Override
@@ -173,10 +190,8 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 			writer.removeAttribute("/", "/");
 			writer.setAttribute("/", N5Reader.VERSION_KEY,
 					new N5Reader.Version(N5Reader.VERSION.getMajor() + 1, N5Reader.VERSION.getMinor(), N5Reader.VERSION.getPatch()).toString());
-			assertThrows("Incompatible version throws error", IOException.class,
-					() -> {
-						createN5Reader(canonicalPath);
-					});
+			assertThrows("Incompatible version throws error", N5Exception.N5IOException.class,
+					() -> createN5Reader(canonicalPath));
 			writer.remove();
 		}
 		/* In the AbstractN5Test class, there is a final test to ensure the reader creation fails if the container doesn't exist.
