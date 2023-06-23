@@ -268,6 +268,9 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
+		if (!bucketExists(bucketName))
+			return;
+
 		final String path = removeLeadingSlash(normalPath);
 
 		if (!path.endsWith("/")) {
