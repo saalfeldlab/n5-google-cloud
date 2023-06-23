@@ -49,39 +49,4 @@ public class N5GoogleCloudStorageBucketRootMockTest extends AbstractN5GoogleClou
 
         super(MockGoogleCloudStorageFactory.getOrCreateStorage());
     }
-
-    @Override public void testReaderCreation() throws IOException, URISyntaxException {
-        /* The Google cloud FakeStorageRpc that is used during tests does not support bucket creation.
-         * It manages this by treating the storage as a single bucket, that is gauranteed to exist.
-         * Because of this, we can't properly test the failure case where an N5GoogleClouseReader is
-         * constructed over a bucket that does not exist (which should fail).
-         *
-         * We override the test to remove that particular test. */
-
-
-        try (N5Writer writer = createN5Writer()) {
-            final String canonicalPath = writer.getURI().toString();
-
-            final N5Reader n5r = createN5Reader(canonicalPath);
-            assertNotNull(n5r);
-
-            // existing directory without attributes is okay;
-            // Remove and create to remove attributes store
-            writer.remove("/");
-            writer.createGroup("/");
-            final N5Reader na = createN5Reader(canonicalPath);
-            assertNotNull(na);
-
-            // existing location with attributes, but no version
-            writer.remove("/");
-            writer.createGroup("/");
-            writer.setAttribute( "/", "mystring", "ms" );
-            final N5Reader wa = createN5Reader( canonicalPath);
-            assertNotNull( wa );
-
-            /* For cleanup */
-            writer.remove("/");
-        }
-    }
-
 }
