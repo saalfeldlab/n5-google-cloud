@@ -33,24 +33,33 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
 import com.google.cloud.storage.Storage;
 
 public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends AbstractN5GoogleCloudStorageTest {
+
+	protected static String bucketName;
 
     public AbstractN5GoogleCloudStorageContainerPathTest(final Storage storage) {
 
         super(storage);
     }
 
+	@BeforeClass
+	public static void setup() throws IOException, URISyntaxException {
+		bucketName = tempBucketName();
+	}
+
 	@Override
 	protected String tempN5Location() throws URISyntaxException {
-		return new URI("gs", tempBucketName(), tempContainerPath(), null).toString();
+		return new URI("gs", bucketName, tempContainerPath(), null).toString();
 	}
 
     @AfterClass
     public static void cleanup() throws IOException {
 
         rampDownAfterClass();
+		storage.delete(bucketName);
     }
 }

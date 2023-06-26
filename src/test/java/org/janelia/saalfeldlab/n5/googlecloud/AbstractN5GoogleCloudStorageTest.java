@@ -68,12 +68,12 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	protected String tempBucketName() {
+	protected static String tempBucketName() {
 
 		return generateName("n5-test-", "-bucket");
 	}
 
-	protected String tempContainerPath() {
+	protected static String tempContainerPath() {
 
 		return generateName("/n5-test-", ".n5");
 	}

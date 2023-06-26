@@ -83,12 +83,4 @@ public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
 
 		this(storage, bucketName, "/", new GsonBuilder());
 	}
-
-	@Override public boolean remove() throws N5Exception {
-
-		if (exists("/"))
-			return super.remove();
-		else
-			return true;
-	}
 }
