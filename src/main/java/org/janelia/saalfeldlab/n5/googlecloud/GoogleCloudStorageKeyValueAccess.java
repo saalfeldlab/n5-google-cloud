@@ -175,7 +175,18 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	public boolean isDirectory(final String normalPath) {
 
 		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
-		return key.isEmpty() || keyExists(key);
+		if (key.isEmpty() || keyExists(key))
+			return true;
+		else {
+			// not every directory will have a directly stored in the backend,
+			// for example, if the container contents was copied to GCS with the cli
+			// in that case, check if any keys exist with the prefix, if so, its a directory 
+			return storage.list(bucketName,
+					BlobListOption.prefix(key),
+					BlobListOption.pageSize(1),
+					BlobListOption.currentDirectory())
+				.iterateAll().iterator().hasNext();
+		}
 	}
 
 	/**
