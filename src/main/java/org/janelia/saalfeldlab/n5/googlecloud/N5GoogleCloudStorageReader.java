@@ -2,7 +2,6 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import com.google.cloud.storage.Storage;
 import com.google.gson.GsonBuilder;
-import java.io.IOException;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
@@ -18,7 +17,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		super(
 				new GoogleCloudStorageKeyValueAccess(storage, bucketName, false),
@@ -33,7 +32,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final boolean cacheMeta) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final boolean cacheMeta) throws N5Exception {
 
 		this(storage, bucketName, basePath, new GsonBuilder(), cacheMeta);
 	}
@@ -41,7 +40,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(storage, bucketName, basePath, gsonBuilder, false);
 	}
@@ -49,7 +48,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath) throws N5Exception {
 
 		this(storage, bucketName, basePath, new GsonBuilder(), false);
 	}
@@ -57,7 +56,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder, final boolean cacheMeta) throws N5Exception {
 
 		this(storage, bucketName, "/", gsonBuilder, cacheMeta);
 	}
@@ -65,7 +64,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final boolean cacheMeta) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final boolean cacheMeta) throws N5Exception {
 
 		this(storage, bucketName, "/", new GsonBuilder(), cacheMeta);
 	}
@@ -73,7 +72,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final GsonBuilder gsonBuilder) throws N5Exception {
 
 		this(storage, bucketName, "/", gsonBuilder, false);
 	}
@@ -81,7 +80,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	/**
 	 * TODO: javadoc
 	 */
-	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName) throws IOException {
+	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName) throws N5Exception {
 
 		this(storage, bucketName, "/", new GsonBuilder(), false);
 	}
