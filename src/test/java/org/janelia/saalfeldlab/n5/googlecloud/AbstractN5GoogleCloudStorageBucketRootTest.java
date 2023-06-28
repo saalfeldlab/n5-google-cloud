@@ -28,11 +28,9 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import java.io.IOException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import org.junit.AfterClass;
 
 import com.google.cloud.storage.Storage;
 
@@ -48,9 +46,4 @@ public abstract class AbstractN5GoogleCloudStorageBucketRootTest extends Abstrac
 		return new URI("gs", tempBucketName(), "/", null).toString();
 	}
 
-    @AfterClass
-    public static void cleanup() throws IOException {
-
-        rampDownAfterClass();
-    }
 }

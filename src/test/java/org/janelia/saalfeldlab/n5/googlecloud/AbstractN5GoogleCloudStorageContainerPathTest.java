@@ -59,7 +59,6 @@ public abstract class AbstractN5GoogleCloudStorageContainerPathTest extends Abst
     @AfterClass
     public static void cleanup() throws IOException {
 
-        rampDownAfterClass();
 		storage.delete(bucketName);
     }
 }
