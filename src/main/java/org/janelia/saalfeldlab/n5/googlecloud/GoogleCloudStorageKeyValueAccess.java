@@ -37,12 +37,13 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	private final String bucketName;
 
 	/**
-	 * TODO: javadoc
-	 *
-	 * @param storage
-	 * @param bucketName
-	 * @param createBucket
-	 * @throws N5Exception.N5IOException
+	 * Creates a {@link KeyValueAccess} using a google cloud storage backend.
+	 * 
+	 * @param storage the google cloud interface
+	 * @param bucketName the bucket name
+	 * @param createBucket if true, a bucket will be created if it does not exist 
+	 * @throws N5Exception.N5IOException if the requested bucket does not exist and createBucket is false
+	 * 
 	 */
 	public GoogleCloudStorageKeyValueAccess(final Storage storage, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
 
@@ -140,6 +141,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	/**
 	 * Check existence of the given {@code key}.
 	 *
+	 * @param key the object key
 	 * @return {@code true} if {@code key} exists.
 	 */
 	private boolean keyExists(final String key) {
@@ -224,8 +226,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 *
 	 * @param normalPath is expected to be in normalized form, no further
 	 * 		efforts are made to normalize it.
-	 * @return
-	 * @throws IOException
+	 * @return the array of child directories
 	 */
 	@Override
 	public String[] listDirectories(final String normalPath) {
