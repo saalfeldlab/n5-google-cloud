@@ -118,6 +118,13 @@ public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
      *
      * @param storage the google cloud storage instance
      * @param bucketName the bucket name
+     * @param cacheAttributes
+     *            cache attribute and meta data
+	 *            Setting this to true avoids frequent reading and parsing of
+	 *            JSON encoded attributes and other meta data that requires
+	 *            accessing the store. This i smost interesting for high latency
+	 *            backends. Changes of cached attributes and meta data by an
+	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the reader could not be created
 	 */
 	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final boolean cacheAttributes) throws N5Exception {

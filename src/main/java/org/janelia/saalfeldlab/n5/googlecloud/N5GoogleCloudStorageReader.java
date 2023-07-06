@@ -3,6 +3,7 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import com.google.cloud.storage.Storage;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 
 public class N5GoogleCloudStorageReader extends N5KeyValueReader {
