@@ -115,8 +115,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
+		return N5URI.from(
+				"gs://" + bucketName + (normalPath.startsWith("/") ? normalPath : "/" + normalPath), null, null)
+				.getURI();
 
-		return new URI("gs", bucketName, normalPath, null);
 	}
 
 	/**
