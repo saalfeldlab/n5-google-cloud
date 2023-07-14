@@ -39,11 +39,11 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	/**
 	 * Creates a {@link KeyValueAccess} using a google cloud storage backend.
 	 * 
-	 * @param storage the google cloud interface
-	 * @param bucketName the bucket name
-	 * @param createBucket if true, a bucket will be created if it does not exist 
-	 * @throws N5Exception.N5IOException if the requested bucket does not exist and createBucket is false
-	 * 
+	 * @param storage      the google cloud interface
+	 * @param bucketName   the bucket name
+	 * @param createBucket if true, a bucket will be created if it does not exist
+	 * @throws N5Exception.N5IOException if the requested bucket does not exist and
+	 *                                   createBucket is false
 	 */
 	public GoogleCloudStorageKeyValueAccess(final Storage storage, final String bucketName, final boolean createBucket) throws N5Exception.N5IOException {
 
@@ -54,7 +54,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			if (createBucket) {
 				storage.create(BucketInfo.of(bucketName));
 			} else {
-				throw new N5Exception.N5IOException("Bucket " + bucketName + " does not exist.");
+				throw new N5Exception.N5IOException(
+						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
 			}
 		}
 	}
