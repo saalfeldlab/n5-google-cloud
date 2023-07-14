@@ -28,16 +28,9 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud.mock;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
 
-import org.janelia.saalfeldlab.n5.N5Reader;
-import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.AbstractN5GoogleCloudStorageContainerPathTest;
-
-import static org.junit.Assert.assertNotNull;
 
 /**
  * Initiates testing of the Google Cloud Storage N5 implementation using mock library.
