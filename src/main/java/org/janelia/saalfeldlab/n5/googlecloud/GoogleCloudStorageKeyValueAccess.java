@@ -68,7 +68,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
-		return Arrays.stream(path.split("/"))
+		final String[] baseComponents = path.split("/");
+		if (baseComponents.length <= 1)
+			return baseComponents;
+		return Arrays.stream(baseComponents)
 				.filter(x -> !x.isEmpty())
 				.toArray(String[]::new);
 	}
