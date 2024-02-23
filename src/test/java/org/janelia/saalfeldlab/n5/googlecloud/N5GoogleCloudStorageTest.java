@@ -28,20 +28,30 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
+import com.google.cloud.storage.Bucket;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
+import org.janelia.saalfeldlab.n5.googlecloud.backend.BackendGoogleCloudStorageFactory;
+import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.Test;
 
 import com.google.cloud.storage.Storage;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
@@ -52,25 +62,44 @@ import static org.junit.Assert.assertThrows;
  *
  * @author Igor Pisarev &lt;pisarevi@janelia.hhmi.org&gt;
  */
-public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
+@RunWith(Parameterized.class)
+public class N5GoogleCloudStorageTest extends AbstractN5Test {
 
-	protected static Storage storage;
+	@Parameterized.Parameters(name = "{0}")
+	public static Collection<Object[]> data() {
 
-	public AbstractN5GoogleCloudStorageTest(final Storage storage) {
-
-		AbstractN5GoogleCloudStorageTest.storage = storage;
+		return Arrays.asList(new Object[][]{
+				{"backend google cloud, container at generated path", null, false},
+				{"backend google cloud, container at generated path , cache attributes", null, true},
+				{"backend google cloud, container at root", "/", false},
+				{"backend google cloud, container at root with , cache attributes", "/", true}
+		});
 	}
 
+	protected static HashMap<Storage, ArrayList<String>> gsBuckets = new HashMap<>();
 	private static final SecureRandom random = new SecureRandom();
+
+	@Parameterized.Parameter(0)
+	public String name;
+
+	@Parameterized.Parameter(1)
+	public String tempPath;
+
+	@Parameterized.Parameter(2)
+	public boolean useCache;
 
 	private static String generateName(String prefix, String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	protected static String tempBucketName() {
+	protected static String tempBucketName(final Storage storage) {
 
-		return generateName("n5-test-", "-bucket");
+		final String bucket = generateName("n5-test-", "-bucket");
+		final ArrayList<String> gsResources = gsBuckets.getOrDefault(storage, new ArrayList<>());
+		gsResources.add(bucket);
+		gsBuckets.putIfAbsent(storage, gsResources);
+		return bucket;
 	}
 
 	protected static String tempContainerPath() {
@@ -78,12 +107,43 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
+	@AfterClass
+	public static void cleanup() {
+
+		synchronized (gsBuckets) {
+			for (Map.Entry<Storage, ArrayList<String>> gsBuckets : gsBuckets.entrySet()) {
+				final Storage storage = gsBuckets.getKey();
+				final ArrayList<String> buckets = gsBuckets.getValue();
+				for (String bucket : buckets) {
+					final Bucket asBucket = storage.get(bucket);
+					if (asBucket != null && asBucket.exists())
+						storage.delete(bucket);
+				}
+			}
+			gsBuckets.clear();
+		}
+	}
+
+	protected Storage getGoogleCloudStorage() {
+		return BackendGoogleCloudStorageFactory.getOrCreateStorage();
+	}
+
+	@Override protected String tempN5Location() throws URISyntaxException, IOException {
+
+		final String containerPath;
+		if (tempPath != null)
+			containerPath = tempPath;
+		else
+			containerPath = tempContainerPath();
+		return new URI("gs", tempBucketName(getGoogleCloudStorage()), containerPath, null).toString();
+	}
+
 	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
 
 		final URI uri = new URI(tempN5Location());
 		final String bucketName = uri.getHost();
 		final String basePath = uri.getPath();
-		return new N5GoogleCloudStorageWriter(storage, bucketName, basePath, new GsonBuilder()) {
+		return new N5GoogleCloudStorageWriter(getGoogleCloudStorage(), bucketName, basePath, new GsonBuilder()) {
 
 			@Override public void close() {
 
@@ -94,12 +154,12 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 	}
 
 	@Override
-	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
+	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws URISyntaxException {
 
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
 		final String basePath = uri.getPath();
-		return new N5GoogleCloudStorageWriter(storage, bucketName, basePath, gson);
+		return new N5GoogleCloudStorageWriter(getGoogleCloudStorage(), bucketName, basePath, gson);
 	}
 
 	@Override
@@ -108,7 +168,7 @@ public abstract class AbstractN5GoogleCloudStorageTest extends AbstractN5Test {
 		final URI uri = new URI(location);
 		final String bucketName = uri.getHost();
 		final String basePath = uri.getPath();
-		return new N5GoogleCloudStorageReader(storage, bucketName, basePath, gson);
+		return new N5GoogleCloudStorageReader(getGoogleCloudStorage(), bucketName, basePath, gson);
 	}
 
 	/**
