@@ -93,7 +93,7 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	protected static String tempBucketName(final Storage storage) {
+	public static String tempBucketName(final Storage storage) {
 
 		final String bucket = generateName("n5-test-", "-bucket");
 		final ArrayList<String> gsResources = gsBuckets.getOrDefault(storage, new ArrayList<>());
