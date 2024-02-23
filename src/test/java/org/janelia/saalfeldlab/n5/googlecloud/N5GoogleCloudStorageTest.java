@@ -65,6 +65,8 @@ import static org.junit.Assert.assertThrows;
 @RunWith(Parameterized.class)
 public class N5GoogleCloudStorageTest extends AbstractN5Test {
 
+	private String testBucket = tempBucketName(getGoogleCloudStorage());
+
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 
@@ -135,7 +137,7 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 			containerPath = tempPath;
 		else
 			containerPath = tempContainerPath();
-		return new URI("gs", tempBucketName(getGoogleCloudStorage()), containerPath, null).toString();
+		return new URI("gs", testBucket, containerPath, null).toString();
 	}
 
 	@Override protected N5Writer createN5Writer() throws IOException, URISyntaxException {
