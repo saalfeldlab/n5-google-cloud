@@ -30,22 +30,20 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import com.google.cloud.storage.Bucket;
 import com.google.gson.GsonBuilder;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.SecureRandom;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.backend.BackendGoogleCloudStorageFactory;
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -65,8 +63,6 @@ import static org.junit.Assert.assertThrows;
 @RunWith(Parameterized.class)
 public class N5GoogleCloudStorageTest extends AbstractN5Test {
 
-	private String testBucket = tempBucketName(getGoogleCloudStorage());
-
 	@Parameterized.Parameters(name = "{0}")
 	public static Collection<Object[]> data() {
 
@@ -78,7 +74,6 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 		});
 	}
 
-	protected static HashMap<Storage, ArrayList<String>> gsBuckets = new HashMap<>();
 	private static final SecureRandom random = new SecureRandom();
 
 	@Parameterized.Parameter(0)
@@ -89,19 +84,16 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 
 	@Parameterized.Parameter(2)
 	public boolean useCache;
+	private String testBucket = tempBucketName();
 
 	private static String generateName(String prefix, String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
 	}
 
-	public static String tempBucketName(final Storage storage) {
+	public static String tempBucketName() {
 
-		final String bucket = generateName("n5-test-", "-bucket");
-		final ArrayList<String> gsResources = gsBuckets.getOrDefault(storage, new ArrayList<>());
-		gsResources.add(bucket);
-		gsBuckets.putIfAbsent(storage, gsResources);
-		return bucket;
+		return generateName("n5-test-", "-bucket");
 	}
 
 	protected static String tempContainerPath() {
@@ -109,24 +101,18 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
-	@AfterClass
-	public static void cleanup() {
+	@After
+	public void deleteBucket() {
 
-		synchronized (gsBuckets) {
-			for (Map.Entry<Storage, ArrayList<String>> gsBuckets : gsBuckets.entrySet()) {
-				final Storage storage = gsBuckets.getKey();
-				final ArrayList<String> buckets = gsBuckets.getValue();
-				for (String bucket : buckets) {
-					final Bucket asBucket = storage.get(bucket);
-					if (asBucket != null && asBucket.exists())
-						storage.delete(bucket);
-				}
-			}
-			gsBuckets.clear();
-		}
+		final Storage storage = getGoogleCloudStorage();
+		final Bucket asBucket = storage.get(testBucket);
+		if (asBucket != null && asBucket.exists())
+			storage.delete(testBucket);
+
 	}
 
 	protected Storage getGoogleCloudStorage() {
+
 		return BackendGoogleCloudStorageFactory.getOrCreateStorage();
 	}
 
@@ -182,7 +168,7 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 	@Test
 	public void testExistsUsingListingObjects() throws IOException, URISyntaxException {
 
-		try (N5Writer n5 = createN5Writer()) {
+		try (N5Writer n5 = createTempN5Writer()) {
 			n5.createGroup("/one/two/three");
 
 			Assert.assertTrue(n5.exists(""));
@@ -229,9 +215,8 @@ public class N5GoogleCloudStorageTest extends AbstractN5Test {
 	@Override
 	@Test public void testReaderCreation() throws IOException, URISyntaxException {
 
-		try (N5Writer writer = createN5Writer()) {
+		try (N5Writer writer = createTempN5Writer()) {
 			final String canonicalPath = writer.getURI().toString();
-
 
 			final N5Reader n5r = createN5Reader(canonicalPath);
 			assertNotNull(n5r);
