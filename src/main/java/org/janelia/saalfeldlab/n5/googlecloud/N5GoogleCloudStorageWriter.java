@@ -7,15 +7,22 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
 
+/*
+ * @deprecated This class is deprecated and may be removed in a future release.
+ * 	Replace with either `N5Factory.openWriter()` or `N5KeyValueAccessWriter` with
+ * 	an {@link GoogleCloudStorageKeyValueAccess} backend.
+ * */
+@Deprecated
 public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
 
-	/**
-	 * TODO: reduce number of constructors ?
-	 */
 
 	/**
 	 * Opens an {@link N5Reader} with a google cloud {@link Storage} storage backend.
-     *
+	 *
+	 * @deprecated This class is deprecated and may be removed in a future release.
+	 * 	Replace with either `N5Factory.openWriter()` or `N5KeyValueAccessWriter` with
+	 * 	an {@link GoogleCloudStorageKeyValueAccess} backend.
+	 *
      * @param storage the google cloud storage instance
      * @param bucketName the bucket name
      * @param basePath the base path relative to the bucket root
@@ -29,6 +36,7 @@ public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
 	 *            independent writer will not be tracked.
 	 * @throws N5Exception if the reader could not be created
 	 */
+	@Deprecated
 	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
