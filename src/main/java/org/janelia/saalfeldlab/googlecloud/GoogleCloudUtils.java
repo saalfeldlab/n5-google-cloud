@@ -1,11 +1,10 @@
 package org.janelia.saalfeldlab.googlecloud;
 
-import com.google.cloud.resourcemanager.Project;
-import com.google.cloud.resourcemanager.ResourceManager;
 import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.StorageOptions;
 
 import javax.annotation.Nullable;
-import java.util.Iterator;
+import java.net.URI;
 import java.util.regex.Pattern;
 
 public class GoogleCloudUtils {
@@ -17,6 +16,24 @@ public class GoogleCloudUtils {
 
 	}
 
+	public static String getGoogleCloudStorageKey(String uri) {
+
+		return getGoogleCloudStorageKey(URI.create(uri));
+	}
+
+	public static String getGoogleCloudStorageKey(URI uri) {
+
+		try {
+			// if key is null, return the empty string
+			final String key =  new GoogleCloudStorageURI(uri).getKey();
+			return key == null ? "" : key;
+		} catch (final Exception e) {
+		}
+		// parse key manually when GoogleCLoudStorageURI can't
+		final String path = uri.getPath().replaceFirst("^/", "");
+		return path.substring(path.indexOf('/') + 1);
+	}
+
 	public static Storage createGoogleCloudStorage(@Nullable final String googleCloudProjectId) {
 
 		final GoogleCloudStorageClient storageClient = getGoogleCloudStorageClient(googleCloudProjectId);
@@ -26,15 +43,10 @@ public class GoogleCloudUtils {
 		return storageClient.create();
 	}
 
-	private static GoogleCloudStorageClient getGoogleCloudStorageClient(@Nullable final String googleCloudProjectId) {
+	public static GoogleCloudStorageClient getGoogleCloudStorageClient(@Nullable final String googleCloudProjectId) {
 
-		final String projectId;
-		if (googleCloudProjectId == null) {
-			final ResourceManager resourceManager = new GoogleCloudResourceManagerClient().create();
-			final Iterator<Project> projectsIterator = resourceManager.list().iterateAll().iterator();
-			projectId = projectsIterator.hasNext() ? projectsIterator.next().getProjectId() : null;
-		} else
-			projectId = googleCloudProjectId;
-		return new GoogleCloudStorageClient(projectId);
+		return new GoogleCloudStorageClient(googleCloudProjectId != null ? googleCloudProjectId :
+				StorageOptions.getDefaultProjectId());
+
 	}
 }

@@ -42,6 +42,7 @@ public class GoogleCloudStorageURI
 	private static final String storagePathPrefix = "/storage/v1/b/";
 	private static final String projectKey = "project";
 
+	private final URI uri;
 	private final String bucketName;
 	private final String objectKey;
 	private final String query;
@@ -54,8 +55,9 @@ public class GoogleCloudStorageURI
 
 	public GoogleCloudStorageURI( final URI uri )
 	{
+		this.uri = uri;
 		final String path;
-		if ( uri.getScheme().equalsIgnoreCase( "gs" ) )
+		if ( uri.getScheme() != null && uri.getScheme().equalsIgnoreCase( "gs" ) )
 		{
 			bucketName = uri.getAuthority();
 			objectKey = uri.getPath();
@@ -101,6 +103,10 @@ public class GoogleCloudStorageURI
 	public String getBucket()
 	{
 		return bucketName;
+	}
+
+	public URI asURI() {
+		return this.uri;
 	}
 
 	public String getKey()
