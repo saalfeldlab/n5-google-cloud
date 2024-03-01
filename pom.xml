@@ -175,7 +175,7 @@
 				<configuration>
 					<excludes>
 						<exclude>org.janelia.saalfeldlab.n5.googlecloud.backend.**</exclude>
-						<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageTest.java</exclude>
+						<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageTests.java</exclude>
 					</excludes>
 				</configuration>
 			</plugin>
