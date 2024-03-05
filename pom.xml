@@ -5,13 +5,13 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>36.0.0</version>
+		<version>37.0.0</version>
 		<relativePath />
 	</parent>
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-google-cloud</artifactId>
-	<version>4.0.1-SNAPSHOT</version>
+	<version>4.1.0-SNAPSHOT</version>
 
 	<name>N5 Google Cloud</name>
 	<description>N5 library implementation using Google Cloud Storage backend.</description>
@@ -123,7 +123,7 @@
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
 
-		<n5.version>3.0.2</n5.version>
+		<n5.version>3.2.0</n5.version>
 	</properties>
 
 	<dependencies>
@@ -168,18 +168,35 @@
 	</repositories>
 
 	<build>
-		<pluginManagement>
-			<plugins>
-				<plugin>
-					<groupId>org.apache.maven.plugins</groupId>
-					<artifactId>maven-surefire-plugin</artifactId>
-					<configuration>
-						<excludes>
-							<exclude>org.janelia.saalfeldlab.n5.googlecloud.backend.**</exclude>
-						</excludes>
-					</configuration>
-				</plugin>
-			</plugins>
-		</pluginManagement>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<excludes>
+						<exclude>org.janelia.saalfeldlab.n5.googlecloud.backend.**</exclude>
+						<exclude>org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageTests.java</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+		</plugins>
 	</build>
+
+	<profiles>
+		<profile>
+			<id>run-backend-tests</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<excludes combine.self="override"/>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+
 </project>

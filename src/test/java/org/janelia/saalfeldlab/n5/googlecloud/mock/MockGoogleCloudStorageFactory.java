@@ -92,7 +92,7 @@ public class MockGoogleCloudStorageFactory {
 		return storage;
 	}
 
-	private static class MockBuckets implements Storage {
+	public static class MockBuckets implements Storage {
 
 		final Storage delegate;
 
