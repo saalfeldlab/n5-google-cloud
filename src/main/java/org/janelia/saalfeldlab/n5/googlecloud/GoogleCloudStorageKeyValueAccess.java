@@ -1,21 +1,5 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.BucketInfo;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobField;
-import com.google.cloud.storage.Storage.BlobListOption;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
-import org.janelia.saalfeldlab.n5.N5Exception;
-import org.janelia.saalfeldlab.n5.N5URI;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +19,23 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.LockedChannel;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5URI;
+
+import com.google.api.gax.paging.Page;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.BucketInfo;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobField;
+import com.google.cloud.storage.Storage.BlobListOption;
+
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private final Storage storage;
@@ -45,7 +46,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		try {
 			return new GoogleCloudStorageURI(uri);
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			throw new N5Exception("Container location " + uri + " is an invalid URI", e);
 		}
 	}
@@ -167,7 +168,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			 * 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			 * 	ignores the absolute prefix anyway. */
 			return GoogleCloudUtils.getGoogleCloudStorageKey(normalize(uri("/" + base).relativize(uri("/" + path)).getPath()));
-		} catch (URISyntaxException e) {
+		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path + ") with base (" + base + ")", e);
 		}
 	}
@@ -247,6 +248,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private static boolean blobExists(final Blob blob) {
 
+		// TODO document this
 		return blob != null && blob.exists();
 	}
 
@@ -440,7 +442,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 			final Blob blob = storage.get(BlobId.of(bucketName, path));
 			if (!blobExists(blob))
-				return null;
+				throw new N5Exception.N5NoSuchKeyException("No such key: " + path);
+
 			final InputStream in = Channels.newInputStream(blob.reader());
 			synchronized (resources) {
 				resources.add(in);
@@ -453,7 +456,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 			final Blob blob = storage.get(BlobId.of(bucketName, path));
 			if (!blobExists(blob))
-				return null;
+				throw new N5Exception.N5NoSuchKeyException("No such key: " + path);
+
 			final Reader in = Channels.newReader(blob.reader(), StandardCharsets.UTF_8.name());
 			synchronized (resources) {
 				resources.add(in);
