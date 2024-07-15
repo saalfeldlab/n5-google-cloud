@@ -3,6 +3,7 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
@@ -19,6 +20,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.StorageException;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -440,11 +443,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		@Override
 		public InputStream newInputStream() {
 
-			final Blob blob = storage.get(BlobId.of(bucketName, path));
-			if (!blobExists(blob))
-				throw new N5Exception.N5NoSuchKeyException("No such key: " + path);
-
-			final InputStream in = Channels.newInputStream(blob.reader());
+			final ReadChannel channel = storage.reader(bucketName, path);
+			final InputStream in = new NoSuchKeyWrappedInputStream(Channels.newInputStream(channel));
 			synchronized (resources) {
 				resources.add(in);
 			}
@@ -454,11 +454,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		@Override
 		public Reader newReader() {
 
-			final Blob blob = storage.get(BlobId.of(bucketName, path));
-			if (!blobExists(blob))
-				throw new N5Exception.N5NoSuchKeyException("No such key: " + path);
-
-			final Reader in = Channels.newReader(blob.reader(), StandardCharsets.UTF_8.name());
+			final Reader in = new InputStreamReader(newInputStream(), StandardCharsets.UTF_8);
 			synchronized (resources) {
 				resources.add(in);
 			}
@@ -496,6 +492,93 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				for (final Closeable resource : resources)
 					resource.close();
 				resources.clear();
+			}
+		}
+
+		private class NoSuchKeyWrappedInputStream extends InputStream {
+
+			private final InputStream in;
+
+			public NoSuchKeyWrappedInputStream(InputStream in) {
+
+				this.in = in;
+			}
+
+			private IOException rethrowOrNoSuchKeyException(IOException e) {
+
+				if (e.getCause() instanceof StorageException && ((StorageException) e.getCause()).getCode() == 404)
+					throw new N5Exception.N5NoSuchKeyException(e);
+				return e;
+			}
+
+			@Override public int read() throws IOException {
+
+				try {
+					return in.read();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int read(byte[] b) throws IOException {
+
+				try {
+					return in.read(b);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int read(byte[] b, int off, int len) throws IOException {
+
+				try {
+					return in.read(b, off, len);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public long skip(long n) throws IOException {
+
+				try {
+					return in.skip(n);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int available() throws IOException {
+
+				try {
+					return in.available();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+
+			}
+
+			@Override public void close() throws IOException {
+
+				in.close();
+			}
+
+			@Override public void mark(int readlimit) {
+
+				in.mark(readlimit);
+			}
+
+			@Override public void reset() throws IOException {
+
+				try {
+					in.reset();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public boolean markSupported() {
+
+				return in.markSupported();
 			}
 		}
 	}
