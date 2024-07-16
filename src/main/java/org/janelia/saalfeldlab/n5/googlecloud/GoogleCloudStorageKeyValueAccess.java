@@ -1,24 +1,9 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import com.google.api.gax.paging.Page;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.BucketInfo;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobField;
-import com.google.cloud.storage.Storage.BlobListOption;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
-import org.janelia.saalfeldlab.n5.N5Exception;
-import org.janelia.saalfeldlab.n5.N5URI;
-
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
@@ -35,6 +20,25 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.StorageException;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.LockedChannel;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5URI;
+
+import com.google.api.gax.paging.Page;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.BucketInfo;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobField;
+import com.google.cloud.storage.Storage.BlobListOption;
+
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private final Storage storage;
@@ -45,7 +49,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		try {
 			return new GoogleCloudStorageURI(uri);
-		} catch (Exception e) {
+		} catch (final Exception e) {
 			throw new N5Exception("Container location " + uri + " is an invalid URI", e);
 		}
 	}
@@ -167,7 +171,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			 * 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			 * 	ignores the absolute prefix anyway. */
 			return GoogleCloudUtils.getGoogleCloudStorageKey(normalize(uri("/" + base).relativize(uri("/" + path)).getPath()));
-		} catch (URISyntaxException e) {
+		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path + ") with base (" + base + ")", e);
 		}
 	}
@@ -247,6 +251,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private static boolean blobExists(final Blob blob) {
 
+		// TODO document this
 		return blob != null && blob.exists();
 	}
 
@@ -438,10 +443,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		@Override
 		public InputStream newInputStream() {
 
-			final Blob blob = storage.get(BlobId.of(bucketName, path));
-			if (!blobExists(blob))
-				return null;
-			final InputStream in = Channels.newInputStream(blob.reader());
+			final ReadChannel channel = storage.reader(bucketName, path);
+			final InputStream in = new NoSuchKeyWrappedInputStream(Channels.newInputStream(channel));
 			synchronized (resources) {
 				resources.add(in);
 			}
@@ -451,10 +454,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		@Override
 		public Reader newReader() {
 
-			final Blob blob = storage.get(BlobId.of(bucketName, path));
-			if (!blobExists(blob))
-				return null;
-			final Reader in = Channels.newReader(blob.reader(), StandardCharsets.UTF_8.name());
+			final Reader in = new InputStreamReader(newInputStream(), StandardCharsets.UTF_8);
 			synchronized (resources) {
 				resources.add(in);
 			}
@@ -492,6 +492,93 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				for (final Closeable resource : resources)
 					resource.close();
 				resources.clear();
+			}
+		}
+
+		private class NoSuchKeyWrappedInputStream extends InputStream {
+
+			private final InputStream in;
+
+			public NoSuchKeyWrappedInputStream(InputStream in) {
+
+				this.in = in;
+			}
+
+			private IOException rethrowOrNoSuchKeyException(IOException e) {
+
+				if (e.getCause() instanceof StorageException && ((StorageException) e.getCause()).getCode() == 404)
+					throw new N5Exception.N5NoSuchKeyException(e);
+				return e;
+			}
+
+			@Override public int read() throws IOException {
+
+				try {
+					return in.read();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int read(byte[] b) throws IOException {
+
+				try {
+					return in.read(b);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int read(byte[] b, int off, int len) throws IOException {
+
+				try {
+					return in.read(b, off, len);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public long skip(long n) throws IOException {
+
+				try {
+					return in.skip(n);
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public int available() throws IOException {
+
+				try {
+					return in.available();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+
+			}
+
+			@Override public void close() throws IOException {
+
+				in.close();
+			}
+
+			@Override public void mark(int readlimit) {
+
+				in.mark(readlimit);
+			}
+
+			@Override public void reset() throws IOException {
+
+				try {
+					in.reset();
+				} catch (final IOException e) {
+					throw rethrowOrNoSuchKeyException(e);
+				}
+			}
+
+			@Override public boolean markSupported() {
+
+				return in.markSupported();
 			}
 		}
 	}
