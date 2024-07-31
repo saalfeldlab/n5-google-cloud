@@ -20,8 +20,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.google.cloud.ReadChannel;
-import com.google.cloud.storage.StorageException;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -30,6 +28,7 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 
 import com.google.api.gax.paging.Page;
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -38,6 +37,7 @@ import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageException;
 
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
@@ -237,6 +237,13 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return isDirectory(normalPath) || isFile(normalPath);
 	}
 
+	@Override
+	public long size(final String normalPath) throws IOException {
+
+		final Blob blob = storage.get(BlobId.of(bucketName, normalPath), Storage.BlobGetOption.fields(BlobField.SIZE));
+		return blob.getSize();
+	}
+
 	/**
 	 * Check existence of the given {@code key}.
 	 *
@@ -316,9 +323,21 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
+	public LockedChannel lockForReading(final String normalPath, final long startByte, final long numBytes) {
+
+		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), true, startByte, numBytes);
+	}
+
+	@Override
 	public LockedChannel lockForWriting(final String normalPath) {
 
 		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), false);
+	}
+
+	@Override
+	public LockedChannel lockForWriting(final String normalPath, final long startByte, final long numBytes) {
+
+		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), false, startByte, numBytes);
 	}
 
 	/**
@@ -427,10 +446,20 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		final boolean readOnly;
 		final ArrayList<Closeable> resources = new ArrayList<>();
 
-		GoogleCloudObjectChannel(final String path, final boolean readOnly) {
+		private final long startByte;
+		private final long numBytes;
+
+		GoogleCloudObjectChannel(final String path, final boolean readOnly, final long startByte, final long numBytes) {
 
 			this.path = path;
 			this.readOnly = readOnly;
+			this.startByte = startByte;
+			this.numBytes = numBytes;
+		}
+
+		GoogleCloudObjectChannel(final String path, final boolean readOnly) {
+
+			this(path, readOnly, 0, Long.MAX_VALUE);
 		}
 
 		private void checkWritable() {
@@ -441,9 +470,27 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		}
 
 		@Override
+		public long size() throws IOException {
+
+			// TODO there may be a smarter way to do this if we have a reader open already
+			return GoogleCloudStorageKeyValueAccess.this.size(path);
+		}
+
+		@Override
 		public InputStream newInputStream() {
 
 			final ReadChannel channel = storage.reader(bucketName, path);
+			if (startByte > 0) {
+				try {
+					channel.seek(startByte);
+				} catch (final IOException e) {
+					throw new N5Exception.N5IOException(e.getMessage());
+				}
+			}
+
+			if (numBytes < Long.MAX_VALUE)
+				channel.limit(numBytes);
+
 			final InputStream in = new NoSuchKeyWrappedInputStream(Channels.newInputStream(channel));
 			synchronized (resources) {
 				resources.add(in);
@@ -465,10 +512,33 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		public OutputStream newOutputStream() {
 
 			checkWritable();
+			final boolean partialRead = startByte > 0 || numBytes < Long.MAX_VALUE;
+
 			final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, path).build();
 			final OutputStream out = Channels.newOutputStream(storage.writer(blobInfo));
 			synchronized (resources) {
 				resources.add(out);
+			}
+
+			byte[] data = null;
+			if (partialRead) {
+
+				// TODO what if we write past the length of the initial data?
+				final Blob blob = storage.get(BlobId.of(bucketName, path));
+				if (blobExists(blob)) {
+
+					try (final GoogleCloudObjectChannel inputChannel = new GoogleCloudObjectChannel(path,
+							partialRead)) {
+
+						final InputStream is = inputChannel.newInputStream();
+						final int size = blob.getSize().intValue();
+						data = new byte[size];
+						is.read(data);
+						is.close();
+					} catch (final IOException e) {}
+
+					return new GcsPartialOutputStream(out, startByte, numBytes, data);
+				}
 			}
 			return out;
 		}
@@ -580,6 +650,49 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 				return in.markSupported();
 			}
+		}
+	}
+
+	/**
+	 * GCS does not support partial writes. If a partial write is requested, read the entire object, overwrite the
+	 * relevant range, then re-write the entire new object to gcs
+	 *
+	 * TODO look into multipart uploads
+	 */
+	final class GcsPartialOutputStream extends OutputStream {
+
+		private long position;
+		private final byte[] data;
+		private OutputStream out;
+
+		public GcsPartialOutputStream(final OutputStream out, final long startByte, final long size,
+				final byte[] data) {
+
+			// TODO size does nothing - is this okay?
+			position = startByte;
+			this.data = data;
+			this.out = out;
+		}
+
+		@Override
+		public void write(final byte[] b, final int off, final int len) {
+
+			System.arraycopy(b, 0, data, (int)(position + off), len);
+			position += off;
+		}
+
+		@Override
+		public void write(final int b) {
+
+			data[(int)position] = (byte)b;
+			position++;
+		}
+
+		@Override
+		public synchronized void close() throws IOException {
+
+			out.write(data);
+			out.close();
 		}
 	}
 }
