@@ -41,8 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
+import java.util.logging.Logger;
 
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudClient;
+import com.google.api.client.googleapis.services.AbstractGoogleClient;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.Policy;
@@ -74,7 +75,10 @@ public class MockGoogleCloudStorageFactory {
 
 		if (storage == null)
 			storage = new MockBuckets(LocalStorageHelper.getOptions().getService());
-		}
+
+		Logger googleClientLogger = Logger.getLogger(AbstractGoogleClient.class.getName());
+		if (googleClientLogger.getFilter() == null)
+			googleClientLogger.setFilter(new N5GoogleCloudStorageMockTest.MissingAppNameLogFilter());
 
 		return storage;
 	}
