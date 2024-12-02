@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>38.0.1</version>
+		<version>39.0.0</version>
 		<relativePath />
 	</parent>
 
@@ -101,7 +101,7 @@
 	<scm>
 		<connection>scm:git:git://github.com/saalfeldlab/n5-google-cloud</connection>
 		<developerConnection>scm:git:git@github.com:saalfeldlab/n5-google-cloud</developerConnection>
-		<tag>HEAD</tag>
+		<tag>n5-google-cloud-4.1.1</tag>
 		<url>https://github.com/saalfeldlab/n5-google-cloud</url>
 	</scm>
 	<issueManagement>
@@ -122,8 +122,6 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
-
-		<n5.version>3.3.0</n5.version>
 	</properties>
 
 	<dependencies>
