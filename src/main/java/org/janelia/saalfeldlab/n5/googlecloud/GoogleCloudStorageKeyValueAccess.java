@@ -82,6 +82,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this(storage, new GoogleCloudStorageURI(containerURI), createBucket);
 	}
 
+
 	/**
 	 * Creates a {@link KeyValueAccess} using a google cloud storage backend.
 	 *
@@ -97,6 +98,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this.containerURI = containerURI;
 		this.bucketName = containerURI.getBucket();
 
+		// move this logic
 		if (!bucketExists(bucketName)) {
 			if (createBucket) {
 				storage.create(BucketInfo.of(bucketName));
@@ -108,6 +110,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	}
 
 	private boolean bucketExists(final String bucketName) {
+		// TODO why private?
 
 		final Bucket bucket = storage.get(bucketName);
 		return (bucket != null && bucket.exists());
@@ -251,7 +254,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private static boolean blobExists(final Blob blob) {
 
-		// TODO document this
+		// TODO document this 
 		return blob != null && blob.exists();
 	}
 
@@ -278,10 +281,14 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
+		// TODO can this (or bucketExists) be implemented with blobExists?
+
 		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
 		if (key.equals(normalize("/"))) {
 			return bucketExists(bucketName);
 		} else {
+			// TODO probably need to try/catch if bucket does not exist
+
 			// not every directory will have a directly stored in the backend,
 			// for example, if the container contents was copied to GCS with the cli
 			// in that case, check if any keys exist with the prefix, if so, it's a directory
@@ -336,6 +343,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {
 
+		// TODO what should happen when listing a non-existent bucket / path?
+
 		if (!isDirectory(normalPath)) {
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		}
@@ -369,6 +378,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	@Override
 	public void createDirectories(final String normalPath) {
+
+		// TODO move bucket creation here?
+		// i.e. if this fails with a "bucket does not exist" error,
+		// create the bucket
 
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
