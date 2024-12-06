@@ -101,7 +101,7 @@
 	<scm>
 		<connection>scm:git:git://github.com/saalfeldlab/n5-google-cloud</connection>
 		<developerConnection>scm:git:git@github.com:saalfeldlab/n5-google-cloud</developerConnection>
-		<tag>n5-google-cloud-4.1.1</tag>
+		<tag>HEAD</tag>
 		<url>https://github.com/saalfeldlab/n5-google-cloud</url>
 	</scm>
 	<issueManagement>
