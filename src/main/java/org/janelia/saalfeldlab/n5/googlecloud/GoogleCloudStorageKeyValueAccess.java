@@ -98,15 +98,24 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this.containerURI = containerURI;
 		this.bucketName = containerURI.getBucket();
 
-		// move this logic
-		if (!bucketExists(bucketName)) {
 			if (createBucket) {
-				storage.create(BucketInfo.of(bucketName));
-			} else {
-				throw new N5Exception.N5IOException(
-						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
-			}
-		}
+
+				try {
+					if (!bucketExists(bucketName))
+						storage.create(BucketInfo.of(bucketName));
+
+				} catch (Exception e) {
+
+					/*
+					 *  TODO need to separate out:
+					 *  1) attempted to find out if bucket exists and that failed
+					 *  2) confirmed that bucket does not exist but failed to create a new one
+					 */
+
+					throw new N5Exception.N5IOException(
+							"Bucket " + bucketName + " does not exist, and you told me not to create one.");
+				}
+			} 
 	}
 
 	private boolean bucketExists(final String bucketName) {
