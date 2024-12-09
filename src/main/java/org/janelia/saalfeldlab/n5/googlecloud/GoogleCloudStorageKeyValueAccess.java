@@ -118,8 +118,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			} 
 	}
 
-	private boolean bucketExists(final String bucketName) {
-		// TODO why private?
+	public boolean bucketExists(final String bucketName) {
 
 		final Bucket bucket = storage.get(bucketName);
 		return (bucket != null && bucket.exists());
