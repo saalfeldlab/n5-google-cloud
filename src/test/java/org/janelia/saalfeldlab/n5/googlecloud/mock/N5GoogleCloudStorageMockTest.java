@@ -5,19 +5,31 @@ import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.N5GoogleCloudStorageTests;
-import org.janelia.saalfeldlab.n5.googlecloud.mock.MockGoogleCloudStorageFactory;
 import org.junit.Test;
-import org.junit.runners.Parameterized;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.logging.Filter;
+import java.util.logging.Level;
+import java.util.logging.LogRecord;
+import java.util.logging.Logger;
 
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 
 public class N5GoogleCloudStorageMockTest extends N5GoogleCloudStorageTests {
+
+	public static class MissingAppNameLogFilter implements Filter {
+
+		private static final String APP_NAME_LOG_MESSAGE = "Application name is not set. Call Builder#setApplicationName.";
+
+		@Override public boolean isLoggable(LogRecord record) {
+
+			if (Logger.getLogger(record.getLoggerName()).getLevel() == Level.FINEST)
+				return true;
+			return !APP_NAME_LOG_MESSAGE.equals(record.getMessage());
+		}
+	}
 
 	@Override protected Storage getGoogleCloudStorage() {
 
