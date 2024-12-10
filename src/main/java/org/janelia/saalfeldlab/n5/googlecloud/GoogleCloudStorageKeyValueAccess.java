@@ -295,7 +295,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		// TODO can this (or bucketExists) be implemented with blobExists?
+		// TODO can this be implemented with blobExists?
 
 		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
 		if (key.equals(normalize("/"))) {
@@ -400,11 +400,9 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void createDirectories(final String normalPath) {
 
+		/* If the bucket doesn't exist, and we should create it, then do so here. */
 		if (createBucket)
 			createBucket();
-
-		// i.e. if this fails with a "bucket does not exist" error,
-		// create the bucket
 
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
