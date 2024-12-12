@@ -130,6 +130,19 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		bucketCheckedAndExists = true;
 	}
 
+	private void deleteBucket() {
+		if (!createBucket) {
+			throw new N5Exception("Delete Bucket Not Allowed");
+		}
+
+		// Not pointless, flag is Boolean, not boolean, and could be `null`
+		//noinspection PointlessBooleanExpression
+		if (bucketCheckedAndExists == false)
+			return;
+		storage.delete(bucketName);
+		bucketCheckedAndExists = false;
+	}
+
 	@Override
 	public String[] components(final String path) {
 
@@ -450,7 +463,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 * Buckets cannot be removed here if Object Lifecycle Management is used to delete objects.
 		 */
 		if (normalPath.equals(normalize("/"))) {
-			storage.delete(bucketName);
+			deleteBucket();
 			return;
 		}
 	}
