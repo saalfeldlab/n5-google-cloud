@@ -123,7 +123,7 @@ public class N5GoogleCloudStorageTests extends AbstractN5Test {
 		for (LocationInBucket location : LocationInBucket.values()) {
 			final String bucketName = location.getBucketName();
 			try {
-				final GoogleCloudStorageKeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(lateinitStorage, N5URI.encodeAsUri("gs://" + bucketName), false);
+				final GoogleCloudStorageKeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(lateinitStorage, N5URI.encodeAsUri("gs://" + bucketName), true);
 				kva.delete(kva.normalize("/"));
 			} catch (Exception e) {
 				final Bucket bucket = lateinitStorage.get(bucketName);;
