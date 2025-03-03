@@ -41,6 +41,16 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private static final String NORMAL_ROOT = N5URI.normalizeGroupPath( "" );
 
+	/*
+	 * Error codes
+	 */
+	final static int FAILED_PRECONDITION = 400;
+	final static int INVALID_ARGUMENT = 401;
+	final static int UNAUTHENTICATED = 402;
+	final static int PERMISSION_DENIED = 403;
+	final static int NOT_FOUND = 404;
+	final static int ALREADY_EXISTS = 409;
+
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
 	public final String bucketName;
@@ -125,6 +135,12 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		if (!bucketExists) {
 			try {
 				storage.create(BucketInfo.of(bucketName));
+			} catch (StorageException e) {
+				if (e.getCode() == ALREADY_EXISTS)
+					throw new N5Exception.N5IOException("Could not create bucket " + bucketName + " because it already exists.", e);
+				else 
+					throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
+
 			} catch (Exception e) {
 				throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
 			}
