@@ -39,6 +39,8 @@ import java.util.stream.Collectors;
 
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
+	private static final String NORMAL_ROOT = N5URI.normalizeGroupPath( "" );
+
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
 	public final String bucketName;
@@ -295,6 +297,11 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return path.startsWith("/") ? path.substring(1) : path;
 	}
 
+	private static boolean isRoot( final String path ) {
+
+		return N5URI.normalizeGroupPath( path ).equals( NORMAL_ROOT );
+	}
+
 	/**
 	 * Test whether the path is a directory.
 	 * <p>
@@ -308,30 +315,37 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		// TODO can this be implemented with blobExists?
+		final boolean isRoot = isRoot(normalPath);
+		final String key = isRoot ? "" : 
+			removeLeadingSlash(addTrailingSlash(normalPath));
 
-		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
-		if (key.equals(normalize("/"))) {
-			return bucketExists(bucketName);
-		} else {
-			final boolean isDirectory;
+		// The root existing is equivalent to checking if the bucket exists.
+		// However, some buckets may not allow bucket exists checks, but allow listing.
+		// so fall back to listing if bucketExists fails.
+		//
+		// We could consider skipping the bucketExists check, but I expect it to be more
+		// performant than list when it works (should benchmark though).
+		if (isRoot)
 			try {
-				// not every directory will have a directly stored in the backend,
-				// for example, if the container contents was copied to GCS with the cli
-				// in that case, check if any keys exist with the prefix, if so, it's a directory
-				isDirectory = storage.list(bucketName,
-								BlobListOption.prefix(key),
-								BlobListOption.pageSize(1),
-								BlobListOption.currentDirectory())
-						.iterateAll().iterator().hasNext();
-			} catch (final StorageException e) {
-				if (e.getCode() == 404 && e.getMessage().equals("The specified bucket does not exist."))
-					return false;
-				else throw e;
-			}
-			return isDirectory;
+				return bucketExists(bucketName);
+			} catch ( Exception e ) { }
 
+		final boolean isDirectory;
+		try {
+			// not every directory will have a directly stored in the backend,
+			// for example, if the container contents was copied to GCS with the cli
+			// in that case, check if any keys exist with the prefix, if so, it's a directory
+			isDirectory = storage.list(bucketName,
+							BlobListOption.prefix(key),
+							BlobListOption.pageSize(1),
+							BlobListOption.currentDirectory())
+					.iterateAll().iterator().hasNext();
+		} catch (final StorageException e) {
+			if (e.getCode() == 404 && e.getMessage().equals("The specified bucket does not exist."))
+				return false;
+			else throw e;
 		}
+		return isDirectory;
 	}
 
 	/**
