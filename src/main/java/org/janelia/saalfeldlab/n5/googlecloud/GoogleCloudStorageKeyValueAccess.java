@@ -121,7 +121,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * First asks the storage client if the bucket exists. That may fail due to insufficient permissions.
 	 * In that case, attempt to list the root of that bucket which could succeed even if the previous check fails.
 	 * 
-	 * @param bucketName the bucket
 	 * @return true if the bucket exists
 	 */
 	public boolean bucketExists() {
