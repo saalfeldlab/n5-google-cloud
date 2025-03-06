@@ -124,7 +124,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * @param bucketName the bucket
 	 * @return true if the bucket exists
 	 */
-	public boolean bucketExists(final String bucketName) {
+	public boolean bucketExists() {
 
 		if (Objects.equal(bucketCheckedAndExists, true))
 			return bucketCheckedAndExists;
@@ -161,7 +161,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		if (!createBucket)
 			throw new N5Exception("Create Bucket Not Allowed");
 
-		if (!bucketExists(bucketName)) {
+		if (!bucketExists()) {
 			try {
 				storage.create(BucketInfo.of(bucketName));
 				bucketCheckedAndExists = true;
@@ -360,7 +360,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		// The root existing is equivalent to checking if the bucket exists.
 		if (isRoot)
-			return bucketExists(bucketName);
+			return bucketExists();
 		else
 			return prefixExists(key);
 	}
@@ -462,7 +462,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
-		if (!bucketExists(bucketName))
+		if (!bucketExists())
 			return;
 
 		final String path = removeLeadingSlash(normalPath);
