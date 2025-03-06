@@ -140,7 +140,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private boolean prefixExists(final String key) {
 
-		// not every directory will have a directly stored in the backend,
+		// not every directory will have an empty "directory" key stored in the backend,
 		// for example, if the container contents was copied to GCS with the cli
 		// in that case, check if any keys exist with the prefix, if so, it's a directory
 		try {
@@ -150,7 +150,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 							BlobListOption.currentDirectory())
 					.iterateAll().iterator().hasNext();
 		} catch (final StorageException e) {
-			if (e.getCode() == 404 && e.getMessage().equals("The specified bucket or key does not exist."))
+			if (e.getCode() == NOT_FOUND)
 				return false;
 			else throw e;
 		}
