@@ -5,6 +5,7 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
@@ -129,12 +130,21 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			return bucketCheckedAndExists;
 
 		try {
-			bucketCheckedAndExists = storage.get(bucketName) != null;
+			bucketCheckedAndExists = bucketExistsFromClient();
 			return bucketCheckedAndExists;
 		} catch( Exception e ) { }
 
 		bucketCheckedAndExists = prefixExists("");
 		return bucketCheckedAndExists;
+	}
+
+	private boolean bucketExistsFromClient() {
+
+		final Bucket bucket = storage.get(bucketName);
+		if (bucket == null)
+			return false;
+
+		return bucket.exists();
 	}
 
 	private boolean prefixExists(final String key) {
@@ -163,8 +173,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		if (!bucketExists()) {
 			try {
 				storage.create(BucketInfo.of(bucketName));
-				// need to block to guarantee consistency
-				storage.get(bucketName);
 				bucketCheckedAndExists = true;
 			} catch (Exception e) {
 				throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
