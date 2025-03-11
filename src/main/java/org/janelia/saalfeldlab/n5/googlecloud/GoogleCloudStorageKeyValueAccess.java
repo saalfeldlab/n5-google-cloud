@@ -5,11 +5,14 @@ import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobField;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageException;
+import com.google.common.base.Objects;
+
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
@@ -38,6 +41,18 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
+
+	private static final String NORMAL_ROOT = N5URI.normalizeGroupPath( "/" );
+
+	/*
+	 * Error codes
+	 */
+	final static int FAILED_PRECONDITION = 400;
+	final static int INVALID_ARGUMENT = 401;
+	final static int UNAUTHENTICATED = 402;
+	final static int PERMISSION_DENIED = 403;
+	final static int NOT_FOUND = 404;
+	final static int ALREADY_EXISTS = 409;
 
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
@@ -101,11 +116,53 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this.createBucket = createBucket;
 	}
 
-	public boolean bucketExists(final String bucketName) {
+	/**
+	 * Checks if a bucket with the given name exists.
+	 * <p>
+	 * First asks the storage client if the bucket exists. That may fail due to insufficient permissions.
+	 * In that case, attempt to list the root of that bucket which could succeed even if the previous check fails.
+	 * 
+	 * @return true if the bucket exists
+	 */
+	public boolean bucketExists() {
 
-		return bucketCheckedAndExists = bucketCheckedAndExists != null
-				? bucketCheckedAndExists
-				: storage.get(bucketName) != null;
+		if (Objects.equal(bucketCheckedAndExists, true))
+			return bucketCheckedAndExists;
+
+		try {
+			bucketCheckedAndExists = bucketExistsFromClient();
+			return bucketCheckedAndExists;
+		} catch( Exception e ) { }
+
+		bucketCheckedAndExists = prefixExists("");
+		return bucketCheckedAndExists;
+	}
+
+	private boolean bucketExistsFromClient() {
+
+		final Bucket bucket = storage.get(bucketName);
+		if (bucket == null)
+			return false;
+
+		return bucket.exists();
+	}
+
+	private boolean prefixExists(final String key) {
+
+		// not every directory will have an empty "directory" key stored in the backend,
+		// for example, if the container contents was copied to GCS with the cli
+		// in that case, check if any keys exist with the prefix, if so, it's a directory
+		try {
+			return storage.list(bucketName,
+							BlobListOption.prefix(key),
+							BlobListOption.pageSize(1),
+							BlobListOption.currentDirectory())
+					.iterateAll().iterator().hasNext();
+		} catch (final StorageException e) {
+			if (e.getCode() == NOT_FOUND)
+				return false;
+			else throw e;
+		}
 	}
 
 	private void createBucket() {
@@ -113,32 +170,25 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		if (!createBucket)
 			throw new N5Exception("Create Bucket Not Allowed");
 
-		final boolean bucketExists;
-		try {
-			bucketExists = bucketExists(bucketName);
-		} catch (Exception e) {
-			throw new N5Exception.N5IOException("Could not check if bucket exists. bucket:  " + bucketName, e);
-		}
-
-		if (!bucketExists) {
+		if (!bucketExists()) {
 			try {
 				storage.create(BucketInfo.of(bucketName));
+				bucketCheckedAndExists = true;
 			} catch (Exception e) {
 				throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
 			}
 		}
-		bucketCheckedAndExists = true;
 	}
 
 	private void deleteBucket() {
-		if (!createBucket) {
+
+		if (!createBucket)
 			throw new N5Exception("Delete Bucket Not Allowed");
-		}
 
 		// Not pointless, flag is Boolean, not boolean, and could be `null`
-		//noinspection PointlessBooleanExpression
-		if (bucketCheckedAndExists == false)
+		if (Objects.equal(bucketCheckedAndExists, false))
 			return;
+
 		storage.delete(bucketName);
 		bucketCheckedAndExists = false;
 	}
@@ -295,6 +345,11 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return path.startsWith("/") ? path.substring(1) : path;
 	}
 
+	private static boolean isRoot( final String path ) {
+
+		return N5URI.normalizeGroupPath( path ).equals( NORMAL_ROOT );
+	}
+
 	/**
 	 * Test whether the path is a directory.
 	 * <p>
@@ -308,30 +363,15 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		// TODO can this be implemented with blobExists?
+		final boolean isRoot = isRoot(normalPath);
+		final String key = isRoot ? "" : 
+			removeLeadingSlash(addTrailingSlash(normalPath));
 
-		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
-		if (key.equals(normalize("/"))) {
-			return bucketExists(bucketName);
-		} else {
-			final boolean isDirectory;
-			try {
-				// not every directory will have a directly stored in the backend,
-				// for example, if the container contents was copied to GCS with the cli
-				// in that case, check if any keys exist with the prefix, if so, it's a directory
-				isDirectory = storage.list(bucketName,
-								BlobListOption.prefix(key),
-								BlobListOption.pageSize(1),
-								BlobListOption.currentDirectory())
-						.iterateAll().iterator().hasNext();
-			} catch (final StorageException e) {
-				if (e.getCode() == 404 && e.getMessage().equals("The specified bucket does not exist."))
-					return false;
-				else throw e;
-			}
-			return isDirectory;
-
-		}
+		// The root existing is equivalent to checking if the bucket exists.
+		if (isRoot)
+			return bucketExists();
+		else
+			return prefixExists(key);
 	}
 
 	/**
@@ -431,7 +471,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
-		if (!bucketExists(bucketName))
+		if (!bucketExists())
 			return;
 
 		final String path = removeLeadingSlash(normalPath);
@@ -464,7 +504,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 */
 		if (normalPath.equals(normalize("/"))) {
 			deleteBucket();
-			return;
 		}
 	}
 
