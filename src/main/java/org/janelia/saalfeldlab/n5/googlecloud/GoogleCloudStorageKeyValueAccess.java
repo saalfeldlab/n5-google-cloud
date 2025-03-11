@@ -263,7 +263,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	}
 
 	/**
-	 * Create a URI that is the result of resolving the `normalPath` against the {@link #containerURI}.
+	 * Create a URI that is the result of resolving the `normalPath` against the {@link #crontainerURI}.
 	 * NOTE: {@link URI#resolve(URI)} always removes the last member of the receiver URIs path.
 	 * That is undesirable behavior here, as we want to potentially keep the containerURI's
 	 * full path, and just append `normalPath`. However, it's more complicated, as `normalPath`
