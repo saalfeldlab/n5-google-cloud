@@ -504,7 +504,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 */
 		if (normalPath.equals(normalize("/"))) {
 			deleteBucket();
-			return;
 		}
 	}
 
