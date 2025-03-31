@@ -39,6 +39,8 @@ import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.backend.BackendGoogleCloudStorageFactory;
+import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -115,25 +117,38 @@ public class N5GoogleCloudStorageTests extends AbstractN5Test {
 	@Parameterized.Parameter(1)
 	public UseCache useCache;
 
-	protected static Storage lateinitStorage = null;
+	private static Storage lateinitStorage;
+	{
+		lateinitStorage = getGoogleCloudStorage();
+	}
 
-	@Parameterized.AfterParam()
-	public static void removeTestBuckets() {
+	@Parameterized.AfterParam
+	public static void removeTestBucket(LocationInBucket containerLocation, UseCache ignore) {
+		if (containerLocation != LocationInBucket.ROOT)
+			return;
 
-		for (LocationInBucket location : LocationInBucket.values()) {
-			final String bucketName = location.getBucketName();
-			try {
-				final GoogleCloudStorageKeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(lateinitStorage, N5URI.encodeAsUri("gs://" + bucketName), false);
-				kva.delete(kva.normalize("/"));
-			} catch (Exception e) {
-				final Bucket bucket = lateinitStorage.get(bucketName);;
-				if (bucket == null || !bucket.exists())
-					continue;
-				System.err.println("Exception After Tests, Could Not Delete Test Bucket:" + bucketName);
-				e.printStackTrace();
-			}
+		final String bucketName = containerLocation.getBucketName();
+		try {
+			final GoogleCloudStorageKeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(lateinitStorage, N5URI.encodeAsUri("gs://" + bucketName), true);
+			kva.delete(kva.normalize("/"));
+		} catch (Exception e) {
+			System.err.println("Exception After Tests, Could Not Delete Test Bucket:" + bucketName);
+			e.printStackTrace();
 		}
 	}
+
+	@AfterClass
+	public static void afterClass() {
+		final String bucketName = LocationInBucket.KEY.getBucketName();
+		try {
+			final GoogleCloudStorageKeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(lateinitStorage, N5URI.encodeAsUri("gs://" + bucketName), true);
+			kva.delete(kva.normalize("/"));
+		} catch (Exception e) {
+			System.err.println("Exception After Tests, Could Not Delete Test Bucket:" + bucketName);
+			e.printStackTrace();
+		}
+	}
+
 	private static String generateName(String prefix, String suffix) {
 
 		return prefix + Long.toUnsignedString(random.nextLong()) + suffix;
@@ -149,13 +164,14 @@ public class N5GoogleCloudStorageTests extends AbstractN5Test {
 		return generateName("/n5-test-", ".n5");
 	}
 
-	{
-		lateinitStorage = getGoogleCloudStorage();
-	}
-
 	protected Storage getGoogleCloudStorage() {
 
 		return BackendGoogleCloudStorageFactory.getOrCreateStorage();
+	}
+
+	@Override public void testAttributePathEscaping() {
+
+		super.testAttributePathEscaping();
 	}
 
 	@Override protected String tempN5Location() throws URISyntaxException {

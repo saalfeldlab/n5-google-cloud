@@ -1,5 +1,25 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
+import com.google.api.gax.paging.Page;
+import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.Blob;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.cloud.storage.BucketInfo;
+import com.google.cloud.storage.Storage;
+import com.google.cloud.storage.Storage.BlobField;
+import com.google.cloud.storage.Storage.BlobListOption;
+import com.google.cloud.storage.StorageException;
+import com.google.common.base.Objects;
+
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
+import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.LockedChannel;
+import org.janelia.saalfeldlab.n5.N5Exception;
+import org.janelia.saalfeldlab.n5.N5URI;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
@@ -20,30 +40,26 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
-import org.janelia.saalfeldlab.n5.N5Exception;
-import org.janelia.saalfeldlab.n5.N5URI;
-
-import com.google.api.gax.paging.Page;
-import com.google.cloud.ReadChannel;
-import com.google.cloud.storage.Blob;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Bucket;
-import com.google.cloud.storage.BucketInfo;
-import com.google.cloud.storage.Storage;
-import com.google.cloud.storage.Storage.BlobField;
-import com.google.cloud.storage.Storage.BlobListOption;
-import com.google.cloud.storage.StorageException;
-
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
+
+	private static final String NORMAL_ROOT = N5URI.normalizeGroupPath( "/" );
+
+	/*
+	 * Error codes
+	 */
+	final static int FAILED_PRECONDITION = 400;
+	final static int INVALID_ARGUMENT = 401;
+	final static int UNAUTHENTICATED = 402;
+	final static int PERMISSION_DENIED = 403;
+	final static int NOT_FOUND = 404;
+	final static int ALREADY_EXISTS = 409;
 
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
-	private final String bucketName;
+	public final String bucketName;
+
+	private final boolean createBucket;
+	private Boolean bucketCheckedAndExists = null;
 
 	protected static GoogleCloudStorageURI uncheckedContainerLocationStringToGoogleURI(final String uri) {
 
@@ -82,6 +98,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this(storage, new GoogleCloudStorageURI(containerURI), createBucket);
 	}
 
+
 	/**
 	 * Creates a {@link KeyValueAccess} using a google cloud storage backend.
 	 *
@@ -96,21 +113,84 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		this.storage = storage;
 		this.containerURI = containerURI;
 		this.bucketName = containerURI.getBucket();
+		this.createBucket = createBucket;
+	}
 
-		if (!bucketExists(bucketName)) {
-			if (createBucket) {
+	/**
+	 * Checks if a bucket with the given name exists.
+	 * <p>
+	 * First asks the storage client if the bucket exists. That may fail due to insufficient permissions.
+	 * In that case, attempt to list the root of that bucket which could succeed even if the previous check fails.
+	 * 
+	 * @return true if the bucket exists
+	 */
+	public boolean bucketExists() {
+
+		if (Objects.equal(bucketCheckedAndExists, true))
+			return bucketCheckedAndExists;
+
+		try {
+			bucketCheckedAndExists = bucketExistsFromClient();
+			return bucketCheckedAndExists;
+		} catch( Exception e ) { }
+
+		bucketCheckedAndExists = prefixExists("");
+		return bucketCheckedAndExists;
+	}
+
+	private boolean bucketExistsFromClient() {
+
+		final Bucket bucket = storage.get(bucketName);
+		if (bucket == null)
+			return false;
+
+		return bucket.exists();
+	}
+
+	private boolean prefixExists(final String key) {
+
+		// not every directory will have an empty "directory" key stored in the backend,
+		// for example, if the container contents was copied to GCS with the cli
+		// in that case, check if any keys exist with the prefix, if so, it's a directory
+		try {
+			return storage.list(bucketName,
+							BlobListOption.prefix(key),
+							BlobListOption.pageSize(1),
+							BlobListOption.currentDirectory())
+					.iterateAll().iterator().hasNext();
+		} catch (final StorageException e) {
+			if (e.getCode() == NOT_FOUND)
+				return false;
+			else throw e;
+		}
+	}
+
+	private void createBucket() {
+
+		if (!createBucket)
+			throw new N5Exception("Create Bucket Not Allowed");
+
+		if (!bucketExists()) {
+			try {
 				storage.create(BucketInfo.of(bucketName));
-			} else {
-				throw new N5Exception.N5IOException(
-						"Bucket " + bucketName + " does not exist, and you told me not to create one.");
+				bucketCheckedAndExists = true;
+			} catch (Exception e) {
+				throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
 			}
 		}
 	}
 
-	private boolean bucketExists(final String bucketName) {
+	private void deleteBucket() {
 
-		final Bucket bucket = storage.get(bucketName);
-		return (bucket != null && bucket.exists());
+		if (!createBucket)
+			throw new N5Exception("Delete Bucket Not Allowed");
+
+		// Not pointless, flag is Boolean, not boolean, and could be `null`
+		if (Objects.equal(bucketCheckedAndExists, false))
+			return;
+
+		storage.delete(bucketName);
+		bucketCheckedAndExists = false;
 	}
 
 	@Override
@@ -258,7 +338,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private static boolean blobExists(final Blob blob) {
 
-		// TODO document this
+		// TODO document this 
 		return blob != null && blob.exists();
 	}
 
@@ -270,6 +350,11 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	private static String removeLeadingSlash(final String path) {
 
 		return path.startsWith("/") ? path.substring(1) : path;
+	}
+
+	private static boolean isRoot( final String path ) {
+
+		return N5URI.normalizeGroupPath( path ).equals( NORMAL_ROOT );
 	}
 
 	/**
@@ -285,19 +370,15 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		final String key = removeLeadingSlash(addTrailingSlash(normalPath));
-		if (key.equals(normalize("/"))) {
-			return bucketExists(bucketName);
-		} else {
-			// not every directory will have a directly stored in the backend,
-			// for example, if the container contents was copied to GCS with the cli
-			// in that case, check if any keys exist with the prefix, if so, it's a directory
-			return storage.list(bucketName,
-							BlobListOption.prefix(key),
-							BlobListOption.pageSize(1),
-							BlobListOption.currentDirectory())
-					.iterateAll().iterator().hasNext();
-		}
+		final boolean isRoot = isRoot(normalPath);
+		final String key = isRoot ? "" : 
+			removeLeadingSlash(addTrailingSlash(normalPath));
+
+		// The root existing is equivalent to checking if the bucket exists.
+		if (isRoot)
+			return bucketExists();
+		else
+			return prefixExists(key);
 	}
 
 	/**
@@ -355,6 +436,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 	private String[] list(final String normalPath, final boolean onlyDirectories) {
 
+		// TODO what should happen when listing a non-existent bucket / path?
+
 		if (!isDirectory(normalPath)) {
 			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 		}
@@ -389,6 +472,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void createDirectories(final String normalPath) {
 
+		/* If the bucket doesn't exist, and we should create it, then do so here. */
+		if (createBucket)
+			createBucket();
+
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
 			path = addTrailingSlash(compose(path, component));
@@ -403,7 +490,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public void delete(final String normalPath) {
 
-		if (!bucketExists(bucketName))
+		if (!bucketExists())
 			return;
 
 		final String path = removeLeadingSlash(normalPath);
@@ -435,8 +522,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 * Buckets cannot be removed here if Object Lifecycle Management is used to delete objects.
 		 */
 		if (normalPath.equals(normalize("/"))) {
-			storage.delete(bucketName);
-			return;
+			deleteBucket();
 		}
 	}
 

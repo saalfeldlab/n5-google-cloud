@@ -5,13 +5,13 @@
 	<parent>
 		<groupId>org.scijava</groupId>
 		<artifactId>pom-scijava</artifactId>
-		<version>38.0.1</version>
+		<version>40.0.0</version>
 		<relativePath />
 	</parent>
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-google-cloud</artifactId>
-	<version>4.1.2-SNAPSHOT</version>
+	<version>5.0.1-SNAPSHOT</version>
 
 	<name>N5 Google Cloud</name>
 	<description>N5 library implementation using Google Cloud Storage backend.</description>
@@ -120,10 +120,10 @@
 		<license.organizationName>Saalfeld Lab</license.organizationName>
 		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
 
+		<n5.version>4.0.0-SNAPSHOT</n5.version>
+
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
-
-		<n5.version>3.3.1-SNAPSHOT</n5.version>
 	</properties>
 
 	<dependencies>
@@ -149,7 +149,6 @@
 		<dependency>
 			<groupId>org.janelia.saalfeldlab</groupId>
 			<artifactId>n5</artifactId>
-			<version>${n5.version}</version>
 			<classifier>tests</classifier>
 			<scope>test</scope>
 		</dependency>
