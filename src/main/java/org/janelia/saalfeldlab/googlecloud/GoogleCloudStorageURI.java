@@ -34,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.google.common.base.Splitter;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 public class GoogleCloudStorageURI {
 	private static final String storageHost = "storage.googleapis.com";
@@ -51,7 +52,7 @@ public class GoogleCloudStorageURI {
 
 	public GoogleCloudStorageURI(final String str) {
 
-		this(URI.create(str));
+		this(N5URI.getAsUri(str));
 	}
 
 	public GoogleCloudStorageURI(final URI uri) {

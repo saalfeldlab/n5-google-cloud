@@ -2,6 +2,7 @@ package org.janelia.saalfeldlab.googlecloud;
 
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
+import org.janelia.saalfeldlab.n5.N5URI;
 
 import javax.annotation.Nullable;
 import java.net.URI;
@@ -18,7 +19,7 @@ public class GoogleCloudUtils {
 
 	public static String getGoogleCloudStorageKey(String uri) {
 
-		return getGoogleCloudStorageKey(URI.create(uri));
+		return getGoogleCloudStorageKey(N5URI.getAsUri(uri));
 	}
 
 	public static String getGoogleCloudStorageKey(URI uri) {
