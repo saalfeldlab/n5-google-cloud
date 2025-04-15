@@ -33,12 +33,9 @@ import java.nio.channels.Channels;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
@@ -121,7 +118,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * <p>
 	 * First asks the storage client if the bucket exists. That may fail due to insufficient permissions.
 	 * In that case, attempt to list the root of that bucket which could succeed even if the previous check fails.
-	 * 
+	 *
 	 * @return true if the bucket exists
 	 */
 	public boolean bucketExists() {
@@ -196,50 +193,18 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public String[] components(final String path) {
 
-		final String[] baseComponents = path.split("/");
-		if (baseComponents.length <= 1)
-			return baseComponents;
-		return Arrays.stream(baseComponents)
-				.filter(x -> !x.isEmpty())
-				.toArray(String[]::new);
-	}
 
-	@Override
-	public String compose(final String... components) {
+		/* If the path is a valid URI with a scheme then use it to get the key. Otherwise,
+		 * use the path directly, assuming it's a path only */
+		String key = path;
+		try {
+			final URI uri = N5URI.getAsUri(path);
+			final String scheme = uri.getScheme();
+			if (scheme != null && !scheme.isEmpty())
+				key = GoogleCloudUtils.getGoogleCloudStorageKey(uri);
+		} catch (Throwable ignore) {}
 
-		if (components == null || components.length == 0)
-			return null;
-
-		return normalize(
-				Arrays.stream(components)
-						.filter(x -> !x.isEmpty())
-						.collect(Collectors.joining("/"))
-		);
-	}
-
-	/**
-	 * Compose a path from a base uri and subsequent components.
-	 *
-	 * @param uri        the base path uri to resolve the components against
-	 * @param components the components of the group path, relative to the n5 container
-	 * @return the path
-	 */
-	@Override
-	public String compose(final URI uri, final String... components) {
-
-		final String[] uriComponents = new String[components.length + 1];
-		System.arraycopy(components, 0, uriComponents, 1, components.length);
-		uriComponents[0] = GoogleCloudUtils.getGoogleCloudStorageKey(uri);
-		return compose(uriComponents);
-	}
-
-	@Override
-	public String parent(final String path) {
-
-		final String[] components = components(path);
-		final String[] parentComponents = Arrays.copyOf(components, components.length - 1);
-
-		return compose(parentComponents);
+		return KeyValueAccess.super.components(key);
 	}
 
 	@Override
@@ -250,7 +215,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			 * 	It's not true that the inputs are always referencing absolute paths, but it doesn't matter in this
 			 * 	case, since we only care about the relative portion of `path` to `base`, so the result always
 			 * 	ignores the absolute prefix anyway. */
-			return GoogleCloudUtils.getGoogleCloudStorageKey(normalize(uri("/" + base).relativize(uri("/" + path)).getPath()));
+			final URI baseAsUri = uri("/" + base);
+			final URI pathAsUri = uri("/" + path);
+			final URI relativeUri = baseAsUri.relativize(pathAsUri);
+			return relativeUri.getPath();
 		} catch (final URISyntaxException e) {
 			throw new N5Exception("Cannot relativize path (" + path + ") with base (" + base + ")", e);
 		}
@@ -281,24 +249,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public URI uri(final String normalPath) throws URISyntaxException {
 
-		final URI asUri = containerURI.asURI();
-
-		if (normalize(normalPath).equals(normalize("/")))
-			return asUri;
-
-		final Path containerPath = Paths.get(asUri.getPath());
-		final Path givenPath = Paths.get(URI.create(normalPath).getPath());
-
-		final Path resolvedPath = containerPath.resolve(givenPath);
-		final String[] pathParts = new String[resolvedPath.getNameCount() + 1];
-		pathParts[0] = "/";
-		for (int i = 0; i < resolvedPath.getNameCount(); i++) {
-			pathParts[i + 1] = resolvedPath.getName(i).toString();
-		}
-		final String normalResolvedPath = compose(pathParts);
-
-		return new URI(asUri.getScheme(), asUri.getAuthority(), normalResolvedPath, null, null);
-
+		return KeyValueAccess.super.uri(compose(containerURI.asURI(), normalPath));
 	}
 
 	/**
@@ -314,7 +265,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean exists(final String normalPath) {
 
-		return isDirectory(normalPath) || isFile(normalPath);
+		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
 	/**
@@ -363,15 +314,22 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isDirectory(final String normalPath) {
 
-		final boolean isRoot = isRoot(normalPath);
-		final String key = isRoot ? "" : 
-			removeLeadingSlash(addTrailingSlash(normalPath));
-
+		final String pathKey = removeLeadingSlash(addTrailingSlash(GoogleCloudUtils.getGoogleCloudStorageKey(normalPath)));
 		// The root existing is equivalent to checking if the bucket exists.
-		if (isRoot)
+		if (isRoot(pathKey))
 			return bucketExists();
-		else
-			return prefixExists(key);
+
+		if (prefixExists(pathKey))
+			return true;
+
+		try {
+			/*may be no children, but may have proper `directory` key*/
+			final Blob blob = storage.get(bucketName, pathKey);
+			if (blob != null)
+				return blob.getSize() == 0;
+		} catch (final Exception ignore) {}
+
+		return false;
 	}
 
 	/**
@@ -387,19 +345,22 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	@Override
 	public boolean isFile(final String normalPath) {
 
-		return !normalPath.endsWith("/") && keyExists(removeLeadingSlash(normalPath));
+		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
 
 	@Override
 	public LockedChannel lockForReading(final String normalPath) {
 
-		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), true);
+		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+		return new GoogleCloudObjectChannel(removeLeadingSlash(key), true);
 	}
 
 	@Override
 	public LockedChannel lockForWriting(final String normalPath) {
 
-		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), false);
+		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+		return new GoogleCloudObjectChannel(removeLeadingSlash(key), false);
 	}
 
 	/**
@@ -419,29 +380,37 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		// TODO what should happen when listing a non-existent bucket / path?
 
-		if (!isDirectory(normalPath)) {
-			throw new N5Exception.N5IOException(normalPath + " is not a valid group");
-		}
-
+		final String pathKey = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
 		final List<String> subGroups = new ArrayList<>();
-		final String prefix = removeLeadingSlash(addTrailingSlash(normalPath));
+		final String prefix = removeLeadingSlash(addTrailingSlash(pathKey));
 		final Page<Blob> blobListing = storage.list(
 				bucketName,
 				BlobListOption.prefix(prefix),
 				BlobListOption.currentDirectory(),
 				BlobListOption.fields(BlobField.ID));
-		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext(); ) {
+		int numBlobs = 0;
+		for (final Iterator<Blob> blobIterator = blobListing.iterateAll().iterator(); blobIterator.hasNext(); numBlobs++) {
 			final Blob nextBlob = blobIterator.next();
 			final String blobName = nextBlob.getBlobId().getName();
 			if (prefix.equals(blobName))
 				continue;
 			if (!onlyDirectories || blobName.endsWith("/")) {
-				final String relativePath = relativize(blobName, prefix);
+				final String relativePath = normalize(relativize(blobName, prefix));
 				if (!relativePath.isEmpty())
 					subGroups.add(relativePath);
 			}
 		}
-		return subGroups.toArray(new String[subGroups.size()]);
+		if (numBlobs > 0)
+			return subGroups.toArray(new String[0]);
+
+		/* If no blobs, may still be an empty directory key. */
+		try {
+			final Blob blob = storage.get(bucketName, prefix);
+			if (blob != null && blob.getSize() == 0)
+				return new String[0];
+		} catch (final Exception ignore) {}
+
+		throw new N5Exception.N5IOException(normalPath + " is not a valid group");
 	}
 
 	@Override
@@ -459,10 +428,12 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		String path = "";
 		for (final String component : components(removeLeadingSlash(normalPath))) {
-			path = addTrailingSlash(compose(path, component));
-			if (path.equals("/")) {
+			final String composed = addTrailingSlash(compose(path, component));
+			if (composed.equals("/"))
 				continue;
-			}
+
+			path = composed;
+
 			final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, path).build();
 			storage.create(blobInfo);
 		}
@@ -474,10 +445,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		if (!bucketExists())
 			return;
 
-		final String path = removeLeadingSlash(normalPath);
+		final String key = removeLeadingSlash(GoogleCloudUtils.getGoogleCloudStorageKey(normalPath));
 
-		if (!path.endsWith("/")) {
-			storage.delete(BlobId.of(bucketName, path));
+		if (!key.endsWith("/")) {
+			storage.delete(BlobId.of(bucketName, key));
 		}
 
 
@@ -487,7 +458,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 */
 		Page<Blob> page = storage.list(
 				bucketName,
-				BlobListOption.prefix(path),
+				BlobListOption.prefix(key),
 				BlobListOption.fields(BlobField.ID));
 
 		while (page != null) {
@@ -502,7 +473,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		 *
 		 * Buckets cannot be removed here if Object Lifecycle Management is used to delete objects.
 		 */
-		if (normalPath.equals(normalize("/"))) {
+		if (isRoot(key)) {
 			deleteBucket();
 		}
 	}
