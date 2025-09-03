@@ -16,9 +16,14 @@ import com.google.common.base.Objects;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.KeyValueAccess.LazyRead;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -26,12 +31,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.channels.Channels;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -318,7 +325,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public long size(final String normalPath) throws IOException {
+	public long size(final String normalPath) {
 
 		final Blob blob = storage.get(BlobId.of(bucketName, normalPath), Storage.BlobGetOption.fields(BlobField.SIZE));
 		return blob.getSize();
@@ -398,15 +405,15 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	}
 
 	@Override
-	public LockedChannel lockForReading(final String normalPath) {
+	public ReadData createReadData(String normalPath) {
 
-		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), true);
+		return new KeyValueAccessReadData(new GCSLazyRead(removeLeadingSlash(normalPath)));
 	}
 
 	@Override
-	public LockedChannel lockForReading(final String normalPath, final long startByte, final long numBytes) {
+	public LockedChannel lockForReading(final String normalPath) {
 
-		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), true, startByte, numBytes);
+		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), true);
 	}
 
 	@Override
@@ -415,11 +422,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), false);
 	}
 
-	@Override
-	public LockedChannel lockForWriting(final String normalPath, final long startByte, final long numBytes) {
-
-		return new GoogleCloudObjectChannel(removeLeadingSlash(normalPath), false, startByte, numBytes);
-	}
 
 	/**
 	 * List all 'directory'-like children of a path.
@@ -555,8 +557,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			}
 		}
 
-		@Override
-		public long size() throws IOException {
+		public long size() {
 
 			// TODO there may be a smarter way to do this if we have a reader open already
 			return GoogleCloudStorageKeyValueAccess.this.size(path);
@@ -598,33 +599,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		public OutputStream newOutputStream() {
 
 			checkWritable();
-			final boolean partialRead = startByte > 0 || numBytes < Long.MAX_VALUE;
-
 			final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, path).build();
 			final OutputStream out = Channels.newOutputStream(storage.writer(blobInfo));
 			synchronized (resources) {
 				resources.add(out);
-			}
-
-			byte[] data = null;
-			if (partialRead) {
-
-				// TODO what if we write past the length of the initial data?
-				final Blob blob = storage.get(BlobId.of(bucketName, path));
-				if (blobExists(blob)) {
-
-					try (final GoogleCloudObjectChannel inputChannel = new GoogleCloudObjectChannel(path,
-							partialRead)) {
-
-						final InputStream is = inputChannel.newInputStream();
-						final int size = blob.getSize().intValue();
-						data = new byte[size];
-						is.read(data);
-						is.close();
-					} catch (final IOException e) {}
-
-					return new GcsPartialOutputStream(out, startByte, numBytes, data);
-				}
 			}
 			return out;
 		}
@@ -739,46 +717,59 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		}
 	}
 
-	/**
-	 * GCS does not support partial writes. If a partial write is requested, read the entire object, overwrite the
-	 * relevant range, then re-write the entire new object to gcs
-	 *
-	 * TODO look into multipart uploads
-	 */
-	final class GcsPartialOutputStream extends OutputStream {
+	private class GCSLazyRead implements LazyRead {
 
-		private long position;
-		private final byte[] data;
-		private OutputStream out;
+		private final String normalKey;
 
-		public GcsPartialOutputStream(final OutputStream out, final long startByte, final long size,
-				final byte[] data) {
+		GCSLazyRead(String normalKey) {
+	        this.normalKey = normalKey;
+	    }
 
-			// TODO size does nothing - is this okay?
-			position = startByte;
-			this.data = data;
-			this.out = out;
-		}
+	    @Override
+	    public long size() {
+	        return GoogleCloudStorageKeyValueAccess.this.size(normalKey);
+	    }
 
-		@Override
-		public void write(final byte[] b, final int off, final int len) {
+	    @Override
+	    public ReadData materialize(final long offset, final long length) {
 
-			System.arraycopy(b, 0, data, (int)(position + off), len);
-			position += off;
-		}
+			if (length > Integer.MAX_VALUE)
+				throw new N5Exception.N5IOException("Attempt to materialize too large data");
 
-		@Override
-		public void write(final int b) {
+	        try (final GoogleCloudObjectChannel gcsch = new GoogleCloudObjectChannel(normalKey, true, offset, length)) {
 
-			data[(int)position] = (byte)b;
-			position++;
-		}
+				final long channelSize = gcsch.size();
+				if (!validBounds(channelSize, offset, length))
+					throw new IndexOutOfBoundsException();
 
-		@Override
-		public synchronized void close() throws IOException {
+				if( length < 0 ) {
+					// TODO benchmark
+					return ReadData.from(gcsch.newInputStream()).materialize();
+				}
+				else {
+					final byte[] data = new byte[(int)length];
+					gcsch.newInputStream().read(data);
+					return ReadData.from(data);
+				}
 
-			out.write(data);
-			out.close();
-		}
+	        } catch (final NoSuchFileException e) {
+	            throw new N5NoSuchKeyException("No such file", e);
+	        } catch (IOException | UncheckedIOException e) {
+	            throw new N5Exception.N5IOException(e);
+	        }
+	    }
 	}
+
+	private static boolean validBounds(long channelSize, long offset, long length) {
+
+		if (offset < 0)
+			return false;
+		else if (channelSize > 0 && offset >= channelSize) // offset == 0 and arrayLength == 0 is okay
+			return false;
+		else if (length >= 0 && offset + length > channelSize)
+			return false;
+
+		return true;
+	}
+
 }

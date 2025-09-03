@@ -120,7 +120,7 @@
 		<license.organizationName>Saalfeld Lab</license.organizationName>
 		<license.copyrightOwners>Igor Pisarev, Stephan Saalfeld</license.copyrightOwners>
 
-		<n5.version>4.0.0-SNAPSHOT</n5.version>
+		<n5.version>4.0.0-alpha-4-SNAPSHOT</n5.version>
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
