@@ -28,7 +28,6 @@
  */
 package org.janelia.saalfeldlab.n5.googlecloud;
 
-import com.google.cloud.storage.Bucket;
 import com.google.cloud.storage.Storage;
 import com.google.gson.GsonBuilder;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
@@ -39,7 +38,6 @@ import org.janelia.saalfeldlab.n5.N5Reader;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Writer;
 import org.janelia.saalfeldlab.n5.googlecloud.backend.BackendGoogleCloudStorageFactory;
-import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -187,14 +185,13 @@ public class N5GoogleCloudStorageTests extends AbstractN5Test {
 		return createN5Writer(containerUri);
 	}
 
-
-
 	@Override
 	protected N5Writer createN5Writer(final String location, final GsonBuilder gson) throws URISyntaxException {
 
 		final Storage storage = getGoogleCloudStorage();
-		final KeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(storage, N5URI.encodeAsUri(location), true);
-		return new N5KeyValueWriter(kva, location, gson, useCache.cache);
+		final String uriString = location.startsWith("gs://") ? location : "gs://" + location;
+		final KeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(storage, N5URI.encodeAsUri(uriString), true);
+		return new N5KeyValueWriter(kva, uriString, gson, useCache.cache);
 	}
 
 	@Override
