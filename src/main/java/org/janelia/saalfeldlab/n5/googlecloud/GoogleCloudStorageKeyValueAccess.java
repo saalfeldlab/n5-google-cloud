@@ -16,9 +16,12 @@ import com.google.common.base.Objects;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.readdata.ReadData;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -29,6 +32,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.NonReadableChannelException;
 import java.nio.charset.StandardCharsets;
@@ -268,6 +272,13 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return isFile(normalPath) || isDirectory(normalPath);
 	}
 
+	@Override
+	public long size(final String normalPath) {
+
+		final Blob blob = storage.get(BlobId.of(bucketName, normalPath), Storage.BlobGetOption.fields(BlobField.SIZE));
+		return blob.getSize();
+	}
+
 	/**
 	 * Check existence of the given {@code key}.
 	 *
@@ -347,6 +358,12 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
+	}
+	@Override
+	public ReadData createReadData(String normalPath) {
+
+		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+		return new KeyValueAccessReadData(new GCSLazyRead(removeLeadingSlash(key)));
 	}
 
 	@Override
@@ -639,4 +656,68 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			}
 		}
 	}
+	
+	private class GCSLazyRead implements LazyRead {
+
+		private final String normalKey;
+
+		GCSLazyRead(String normalKey) {
+	        this.normalKey = normalKey;
+	    }
+
+	    @Override
+	    public long size() {
+	        return GoogleCloudStorageKeyValueAccess.this.size(normalKey);
+	    }
+
+	    @Override
+	    public ReadData materialize(final long offset, final long length) {
+	    	
+			if (length > Integer.MAX_VALUE)
+				throw new N5Exception.N5IOException("Attempt to materialize too large data");
+
+			final BlobId blobId = BlobId.of(bucketName, normalKey);
+			final Blob blob = storage.get(blobId);
+
+			if (blob == null)
+				throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
+
+			try (ReadChannel from = blob.reader()) {
+
+				final long channelSize = blob.getSize().longValue();
+				if (!validBounds(channelSize, offset, length))
+					throw new IndexOutOfBoundsException();
+
+				from.seek(offset);
+				if (length > 0)
+					from.limit(offset + length);
+
+				long readLength;  
+				if (length < 0)
+					readLength = channelSize;
+				else
+					readLength = length;
+
+				final ByteBuffer buf = ByteBuffer.allocate((int)readLength);
+				from.read(buf);
+				return ReadData.from(buf);
+
+			} catch (IOException e) {
+				throw new N5Exception.N5IOException(e);
+			}
+	    }
+	}
+
+	private static boolean validBounds(long channelSize, long offset, long length) {
+
+		if (offset < 0)
+			return false;
+		else if (channelSize > 0 && offset >= channelSize) // offset == 0 and arrayLength == 0 is okay
+			return false;
+		else if (length >= 0 && offset + length > channelSize)
+			return false;
+
+		return true;
+	}
+
 }
