@@ -16,12 +16,14 @@ import com.google.common.base.Objects;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.KeyValueAccessReadData;
 import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
+import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
 import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
+import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
+import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -360,10 +362,22 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		return !key.endsWith("/") && keyExists(removeLeadingSlash(key));
 	}
 	@Override
-	public ReadData createReadData(String normalPath) {
+	public VolatileReadData createReadData(String normalPath) {
 
 		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-		return new KeyValueAccessReadData(new GCSLazyRead(removeLeadingSlash(key)));
+		return VolatileReadData.from(new GCSLazyRead(removeLeadingSlash(key)));
+	}
+
+	@Override
+	public void write(final String normalPath, final ReadData data) throws N5IOException {
+
+		// TODO locking
+		try (final LockedChannel ch = lockForWriting(normalPath);
+				final OutputStream os = ch.newOutputStream();) {
+			data.writeTo(os);
+		} catch (IOException e) {
+			throw new N5Exception.N5IOException(e);
+		}
 	}
 
 	@Override
@@ -706,6 +720,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				throw new N5Exception.N5IOException(e);
 			}
 	    }
+
+		@Override
+		public void close() throws IOException {
+		}
 	}
 
 	private static boolean validBounds(long channelSize, long offset, long length) {
