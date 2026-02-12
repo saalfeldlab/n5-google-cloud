@@ -11,7 +11,7 @@
 
 	<groupId>org.janelia.saalfeldlab</groupId>
 	<artifactId>n5-google-cloud</artifactId>
-	<version>5.2.0-alpha-1-SNAPSHOT</version>
+	<version>5.2.0-alpha-5-SNAPSHOT</version>
 
 	<name>N5 Google Cloud</name>
 	<description>N5 library implementation using Google Cloud Storage backend.</description>
