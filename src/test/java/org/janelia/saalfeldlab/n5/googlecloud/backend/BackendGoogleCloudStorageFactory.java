@@ -33,11 +33,11 @@ import static org.junit.Assert.fail;
 import java.util.Iterator;
 
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudResourceManagerClient;
-import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageClient;
 
 import com.google.cloud.resourcemanager.Project;
 import com.google.cloud.resourcemanager.ResourceManager;
 import com.google.cloud.storage.Storage;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 
 public class BackendGoogleCloudStorageFactory {
 
@@ -57,7 +57,7 @@ public class BackendGoogleCloudStorageFactory {
             // get first project id to run tests
             final String projectId = projectsIterator.next().getProjectId();
 
-            storage = new GoogleCloudStorageClient(projectId).create();
+            storage = GoogleCloudUtils.createGoogleCloudStorage(projectId);
         }
 
         return storage;
