@@ -1,7 +1,6 @@
 package org.janelia.saalfeldlab.n5.googlecloud;
 
 import com.google.api.gax.paging.Page;
-import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -16,19 +15,15 @@ import com.google.common.base.Objects;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.googlecloud.GoogleCloudUtils;
 import org.janelia.saalfeldlab.n5.KeyValueAccess;
-import org.janelia.saalfeldlab.n5.LockedChannel;
 import org.janelia.saalfeldlab.n5.N5Exception;
 import org.janelia.saalfeldlab.n5.N5URI;
 import org.janelia.saalfeldlab.n5.N5Exception.N5IOException;
-import org.janelia.saalfeldlab.n5.N5Exception.N5NoSuchKeyException;
-import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -396,23 +391,6 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		}
 	}
 
-	@Override
-	@Deprecated
-	public LockedChannel lockForReading(final String normalPath) {
-		throw new UnsupportedOperationException("lockForReading is deprecated.");
-
-//		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-//		return new GoogleCloudObjectChannel(removeLeadingSlash(key), true);
-	}
-
-	@Override
-	public LockedChannel lockForWriting(final String normalPath) {
-		throw new UnsupportedOperationException("lockForWriting is deprecated.");
-
-//		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-//		return new GoogleCloudObjectChannel(removeLeadingSlash(key), false);
-	}
-
 	/**
 	 * List all 'directory'-like children of a path.
 	 *
@@ -497,28 +475,13 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		final String key = removeLeadingSlash(GoogleCloudUtils.getGoogleCloudStorageKey(normalPath));
 
-		if (!key.endsWith("/")) {
-			storage.delete(BlobId.of(bucketName, key));
-		}
+        try {
+            ioPolicy.delete(key);
+        } catch (IOException e) {
+            throw new N5IOException("Error deleting " + normalPath, e);
+        }
 
-
-		/*
-		 * TODO consider instead using Object Lifecycle Management when deleting many items see:
-		 * https://cloud.google.com/storage/docs/deleting-objects#delete-objects-in-bulk
-		 */
-		Page<Blob> page = storage.list(
-				bucketName,
-				BlobListOption.prefix(key),
-				BlobListOption.fields(BlobField.ID));
-
-		while (page != null) {
-			final BlobId[] ids = page.streamValues().map(Blob::getBlobId).toArray(BlobId[]::new);
-			if (ids.length > 0) // storage throws an error if ids is empty
-				storage.delete(ids);
-			page = page.getNextPage();
-		}
-
-		/* remove bucket when deleting the root "/"
+        /* remove bucket when deleting the root "/"
 		 * this needs to happen at the end because a bucket must be empty before it is deleted
 		 *
 		 * Buckets cannot be removed here if Object Lifecycle Management is used to delete objects.
@@ -527,129 +490,4 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 			deleteBucket();
 		}
 	}
-
-	//TODO: Move to N5
-	static class N5ConcurrentModificationException extends N5Exception {
-
-		public N5ConcurrentModificationException(String message) {
-			super(message);
-		}
-
-		public N5ConcurrentModificationException(String message, Throwable cause) {
-			super(message, cause);
-		}
-
-		public N5ConcurrentModificationException(Throwable cause) {
-			super(cause);
-		}
-	}
-
-
-	static class GCSLazyRead implements LazyRead {
-
-        private final Storage storage;
-        private final String bucketName;
-        private final String normalKey;
-		private final boolean generationMatch;
-		private Long generation = null;
-
-
-		GCSLazyRead(
-				final Storage storage,
-				final String bucketName,
-				final String normalKey,
-				final boolean generationMatch) {
-            this.storage = storage;
-            this.bucketName = bucketName;
-            this.normalKey = normalKey;
-			this.generationMatch = generationMatch;
-	    }
-
-		private Blob getBlob(String normalKey, Storage.BlobGetOption... options) {
-			final Blob blob;
-			try {
-				if (generationMatch && generation != null) {
-					final Storage.BlobGetOption[] generationMatchOptions = new Storage.BlobGetOption[options.length+1];
-					System.arraycopy(options, 0, generationMatchOptions, 0, options.length);
-					generationMatchOptions[options.length] = Storage.BlobGetOption.generationMatch(generation);
-					BlobId blobId = BlobId.of(bucketName, normalKey, generation);
-					blob = storage.get(blobId, generationMatchOptions);
-				} else {
-					BlobId blobId = BlobId.of(bucketName, normalKey);
-					blob = storage.get(blobId, options);
-				}
-			} catch (StorageException e) {
-				if (e.getCode() == 404)
-					throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
-				if (e.getCode() == 412)
-					throw new N5ConcurrentModificationException("Generation mismatch. bucket: " + bucketName + ". key: " + normalKey);
-				throw e;
-			}
-
-			if (blob == null)
-				throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
-
-			if (generationMatch && generation == null)
-				generation = blob.getGeneration();
-
-			return blob;
-		}
-
-	    @Override
-	    public long size() {
-
-			final Blob blob = getBlob(normalKey, Storage.BlobGetOption.fields(BlobField.SIZE));
-			return blob.getSize();
-	    }
-
-	    @Override
-	    public ReadData materialize(final long offset, final long length) {
-	    	
-			if (length > Integer.MAX_VALUE)
-				throw new N5IOException("Attempt to materialize too large data");
-
-			final Blob blob = getBlob(normalKey);
-			try (ReadChannel from = blob.reader()) {
-
-				final long channelSize = blob.getSize();
-				if (!validBounds(channelSize, offset, length))
-					throw new IndexOutOfBoundsException();
-
-				from.seek(offset);
-				if (length > 0)
-					from.limit(offset + length);
-
-				long readLength;  
-				if (length < 0)
-					readLength = channelSize;
-				else
-					readLength = length;
-
-				final ByteBuffer buf = ByteBuffer.allocate((int)readLength);
-				from.read(buf);
-				return ReadData.from(buf);
-
-			} catch (IOException e) {
-				throw new N5IOException(e);
-			}
-	    }
-
-		@Override
-		public void close() {
-			generation = null;
-		}
-	}
-
-	private static boolean validBounds(long channelSize, long offset, long length) {
-
-		if (offset < 0)
-			return false;
-		else if (channelSize > 0 && offset >= channelSize) // offset == 0 and arrayLength == 0 is okay
-			return false;
-		else if (length >= 0 && offset + length > channelSize)
-			return false;
-
-		return true;
-	}
-
 }
