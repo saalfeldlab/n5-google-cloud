@@ -25,19 +25,10 @@ import org.janelia.saalfeldlab.n5.readdata.LazyRead;
 import org.janelia.saalfeldlab.n5.readdata.ReadData;
 import org.janelia.saalfeldlab.n5.readdata.VolatileReadData;
 
-import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
-import java.nio.channels.NonReadableChannelException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -60,6 +51,8 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
 	public final String bucketName;
+	private final GcsIoPolicy ioPolicy;
+
 
 	private final boolean createBucket;
 	private Boolean bucketCheckedAndExists = null;
@@ -79,10 +72,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * @param storage      the google cloud interface
 	 * @param containerURI a string representation of a valid {@link URI } that points to the n5 container root.
 	 * @param createBucket if true, a bucket will be created if it does not exist
-	 * @throws N5Exception.N5IOException if the requested bucket does not exist and
+	 * @throws N5IOException if the requested bucket does not exist and
 	 *                                   createBucket is false
 	 */
-	public GoogleCloudStorageKeyValueAccess(final Storage storage, final String containerURI, final boolean createBucket) throws N5Exception.N5IOException {
+	public GoogleCloudStorageKeyValueAccess(final Storage storage, final String containerURI, final boolean createBucket) throws N5IOException {
 
 		this(storage, uncheckedContainerLocationStringToGoogleURI(containerURI), createBucket);
 	}
@@ -93,10 +86,10 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * @param storage      the google cloud interface
 	 * @param containerURI the root of the n5 container root.
 	 * @param createBucket if true, a bucket will be created if it does not exist
-	 * @throws N5Exception.N5IOException if the requested bucket does not exist and
+	 * @throws N5IOException if the requested bucket does not exist and
 	 *                                   createBucket is false
 	 */
-	public GoogleCloudStorageKeyValueAccess(final Storage storage, final URI containerURI, final boolean createBucket) throws N5Exception.N5IOException {
+	public GoogleCloudStorageKeyValueAccess(final Storage storage, final URI containerURI, final boolean createBucket) throws N5IOException {
 
 		this(storage, new GoogleCloudStorageURI(containerURI), createBucket);
 	}
@@ -108,15 +101,33 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	 * @param storage      the google cloud interface
 	 * @param containerURI the root of the n5 container root.
 	 * @param createBucket if true, a bucket will be created if it does not exist
-	 * @throws N5Exception.N5IOException if the requested bucket does not exist and
+	 * @throws N5IOException if the requested bucket does not exist and
 	 *                                   createBucket is false
 	 */
-	public GoogleCloudStorageKeyValueAccess(final Storage storage, final GoogleCloudStorageURI containerURI, final boolean createBucket) throws N5Exception.N5IOException {
+	public GoogleCloudStorageKeyValueAccess(final Storage storage, final GoogleCloudStorageURI containerURI, final boolean createBucket) throws N5IOException {
 
 		this.storage = storage;
 		this.containerURI = containerURI;
 		this.bucketName = containerURI.getBucket();
 		this.createBucket = createBucket;
+
+		this.ioPolicy = setIoPolicy();
+	}
+
+	private GcsIoPolicy setIoPolicy() {
+
+		String ioPolicy = System.getProperty("n5.ioPolicy");
+		if (ioPolicy == null)
+			return new GcsIoPolicy.GenerationMatch(storage, bucketName);
+
+		switch (ioPolicy) {
+			case "unsafe":
+			case "atomicFallbackUnsafe": // For Gc, this is equivalent ot just Unsafe
+				return new GcsIoPolicy.Unsafe(storage, bucketName);
+			case "atomic":
+			default:
+				return new GcsIoPolicy.GenerationMatch(storage, bucketName);
+		}
 	}
 
 	/**
@@ -178,7 +189,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				storage.create(BucketInfo.of(bucketName));
 				bucketCheckedAndExists = true;
 			} catch (Exception e) {
-				throw new N5Exception.N5IOException("Could not create bucket " + bucketName, e);
+				throw new N5IOException("Could not create bucket " + bucketName, e);
 			}
 		}
 	}
@@ -365,33 +376,41 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	public VolatileReadData createReadData(String normalPath) {
 
 		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-		return VolatileReadData.from(new GCSLazyRead(removeLeadingSlash(key)));
+		String normalKey = removeLeadingSlash(key);
+		try {
+			return ioPolicy.read(normalKey);
+		} catch (IOException e) {
+			throw new N5IOException(e);
+		}
 	}
 
 	@Override
 	public void write(final String normalPath, final ReadData data) throws N5IOException {
 
-		// TODO locking
-		try (final LockedChannel ch = lockForWriting(normalPath);
-				final OutputStream os = ch.newOutputStream();) {
-			data.writeTo(os);
+		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+		String normalKey = removeLeadingSlash(key);
+		try {
+			ioPolicy.write(normalKey, data);
 		} catch (IOException e) {
-			throw new N5Exception.N5IOException(e);
+			throw new N5IOException(e);
 		}
 	}
 
 	@Override
+	@Deprecated
 	public LockedChannel lockForReading(final String normalPath) {
+		throw new UnsupportedOperationException("lockForReading is deprecated.");
 
-		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-		return new GoogleCloudObjectChannel(removeLeadingSlash(key), true);
+//		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+//		return new GoogleCloudObjectChannel(removeLeadingSlash(key), true);
 	}
 
 	@Override
 	public LockedChannel lockForWriting(final String normalPath) {
+		throw new UnsupportedOperationException("lockForWriting is deprecated.");
 
-		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
-		return new GoogleCloudObjectChannel(removeLeadingSlash(key), false);
+//		final String key = GoogleCloudUtils.getGoogleCloudStorageKey(normalPath);
+//		return new GoogleCloudObjectChannel(removeLeadingSlash(key), false);
 	}
 
 	/**
@@ -441,7 +460,7 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				return new String[0];
 		} catch (final Exception ignore) {}
 
-		throw new N5Exception.N5IOException(normalPath + " is not a valid group");
+		throw new N5IOException(normalPath + " is not a valid group");
 	}
 
 	@Override
@@ -509,196 +528,90 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 		}
 	}
 
-	private class GoogleCloudObjectChannel implements LockedChannel {
+	//TODO: Move to N5
+	static class N5ConcurrentModificationException extends N5Exception {
 
-		final String path;
-		final boolean readOnly;
-		final ArrayList<Closeable> resources = new ArrayList<>();
-
-		GoogleCloudObjectChannel(final String path, final boolean readOnly) {
-
-			this.path = path;
-			this.readOnly = readOnly;
+		public N5ConcurrentModificationException(String message) {
+			super(message);
 		}
 
-		private void checkWritable() {
-
-			if (readOnly) {
-				throw new NonReadableChannelException();
-			}
+		public N5ConcurrentModificationException(String message, Throwable cause) {
+			super(message, cause);
 		}
 
-		@Override
-		public InputStream newInputStream() {
-
-			final ReadChannel channel = storage.reader(bucketName, path);
-			final InputStream in = new NoSuchKeyWrappedInputStream(Channels.newInputStream(channel));
-			synchronized (resources) {
-				resources.add(in);
-			}
-			return in;
-		}
-
-		@Override
-		public Reader newReader() {
-
-			final Reader in = new InputStreamReader(newInputStream(), StandardCharsets.UTF_8);
-			synchronized (resources) {
-				resources.add(in);
-			}
-			return in;
-		}
-
-		@Override
-		public OutputStream newOutputStream() {
-
-			checkWritable();
-			final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, path).build();
-			final OutputStream out = Channels.newOutputStream(storage.writer(blobInfo));
-			synchronized (resources) {
-				resources.add(out);
-			}
-			return out;
-		}
-
-		@Override
-		public Writer newWriter() {
-
-			checkWritable();
-			final BlobInfo blobInfo = BlobInfo.newBuilder(bucketName, path).build();
-			final Writer out = Channels.newWriter(storage.writer(blobInfo), StandardCharsets.UTF_8.name());
-			synchronized (resources) {
-				resources.add(out);
-			}
-			return out;
-		}
-
-		@Override
-		public void close() throws IOException {
-
-			synchronized (resources) {
-				for (final Closeable resource : resources)
-					resource.close();
-				resources.clear();
-			}
-		}
-
-		private class NoSuchKeyWrappedInputStream extends InputStream {
-
-			private final InputStream in;
-
-			public NoSuchKeyWrappedInputStream(InputStream in) {
-
-				this.in = in;
-			}
-
-			private IOException rethrowOrNoSuchKeyException(IOException e) {
-
-				if (e.getCause() instanceof StorageException && ((StorageException) e.getCause()).getCode() == 404)
-					throw new N5Exception.N5NoSuchKeyException(e);
-				return e;
-			}
-
-			@Override public int read() throws IOException {
-
-				try {
-					return in.read();
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-			}
-
-			@Override public int read(byte[] b) throws IOException {
-
-				try {
-					return in.read(b);
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-			}
-
-			@Override public int read(byte[] b, int off, int len) throws IOException {
-
-				try {
-					return in.read(b, off, len);
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-			}
-
-			@Override public long skip(long n) throws IOException {
-
-				try {
-					return in.skip(n);
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-			}
-
-			@Override public int available() throws IOException {
-
-				try {
-					return in.available();
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-
-			}
-
-			@Override public void close() throws IOException {
-
-				in.close();
-			}
-
-			@Override public void mark(int readlimit) {
-
-				in.mark(readlimit);
-			}
-
-			@Override public void reset() throws IOException {
-
-				try {
-					in.reset();
-				} catch (final IOException e) {
-					throw rethrowOrNoSuchKeyException(e);
-				}
-			}
-
-			@Override public boolean markSupported() {
-
-				return in.markSupported();
-			}
+		public N5ConcurrentModificationException(Throwable cause) {
+			super(cause);
 		}
 	}
-	
-	private class GCSLazyRead implements LazyRead {
 
-		private final String normalKey;
 
-		GCSLazyRead(String normalKey) {
-	        this.normalKey = normalKey;
+	static class GCSLazyRead implements LazyRead {
+
+        private final Storage storage;
+        private final String bucketName;
+        private final String normalKey;
+		private final boolean generationMatch;
+		private Long generation = null;
+
+
+		GCSLazyRead(
+				final Storage storage,
+				final String bucketName,
+				final String normalKey,
+				final boolean generationMatch) {
+            this.storage = storage;
+            this.bucketName = bucketName;
+            this.normalKey = normalKey;
+			this.generationMatch = generationMatch;
 	    }
+
+		private Blob getBlob(String normalKey, Storage.BlobGetOption... options) {
+			final Blob blob;
+			try {
+				if (generationMatch && generation != null) {
+					final Storage.BlobGetOption[] generationMatchOptions = new Storage.BlobGetOption[options.length+1];
+					System.arraycopy(options, 0, generationMatchOptions, 0, options.length);
+					generationMatchOptions[options.length] = Storage.BlobGetOption.generationMatch(generation);
+					BlobId blobId = BlobId.of(bucketName, normalKey, generation);
+					blob = storage.get(blobId, generationMatchOptions);
+				} else {
+					BlobId blobId = BlobId.of(bucketName, normalKey);
+					blob = storage.get(blobId, options);
+				}
+			} catch (StorageException e) {
+				if (e.getCode() == 404)
+					throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
+				if (e.getCode() == 412)
+					throw new N5ConcurrentModificationException("Generation mismatch. bucket: " + bucketName + ". key: " + normalKey);
+				throw e;
+			}
+
+			if (blob == null)
+				throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
+
+			if (generationMatch && generation == null)
+				generation = blob.getGeneration();
+
+			return blob;
+		}
 
 	    @Override
 	    public long size() {
-	        return GoogleCloudStorageKeyValueAccess.this.size(normalKey);
+
+			final Blob blob = getBlob(normalKey, Storage.BlobGetOption.fields(BlobField.SIZE));
+			return blob.getSize();
 	    }
 
 	    @Override
 	    public ReadData materialize(final long offset, final long length) {
 	    	
 			if (length > Integer.MAX_VALUE)
-				throw new N5Exception.N5IOException("Attempt to materialize too large data");
+				throw new N5IOException("Attempt to materialize too large data");
 
-			final BlobId blobId = BlobId.of(bucketName, normalKey);
-			final Blob blob = storage.get(blobId);
-
-			if (blob == null)
-				throw new N5NoSuchKeyException("No such key. bucket: " + bucketName + ". key: " + normalKey);
-
+			final Blob blob = getBlob(normalKey);
 			try (ReadChannel from = blob.reader()) {
 
-				final long channelSize = blob.getSize().longValue();
+				final long channelSize = blob.getSize();
 				if (!validBounds(channelSize, offset, length))
 					throw new IndexOutOfBoundsException();
 
@@ -717,12 +630,13 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 				return ReadData.from(buf);
 
 			} catch (IOException e) {
-				throw new N5Exception.N5IOException(e);
+				throw new N5IOException(e);
 			}
 	    }
 
 		@Override
-		public void close() throws IOException {
+		public void close() {
+			generation = null;
 		}
 	}
 
