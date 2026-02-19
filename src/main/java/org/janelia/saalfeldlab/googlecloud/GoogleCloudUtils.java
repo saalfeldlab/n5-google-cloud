@@ -6,6 +6,7 @@ import org.janelia.saalfeldlab.n5.N5URI;
 
 import javax.annotation.Nullable;
 import java.net.URI;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 public class GoogleCloudUtils {
@@ -37,17 +38,19 @@ public class GoogleCloudUtils {
 
 	public static Storage createGoogleCloudStorage(@Nullable final String googleCloudProjectId) {
 
-		final GoogleCloudStorageClient storageClient = getGoogleCloudStorageClient(googleCloudProjectId);
-		if (storageClient == null)
-			return null;
-
-		return storageClient.create();
+        return createGoogleCloudStorage(googleCloudProjectId, opts -> {});
 	}
 
-	public static GoogleCloudStorageClient getGoogleCloudStorageClient(@Nullable final String googleCloudProjectId) {
+	public static Storage createGoogleCloudStorage(
+            @Nullable final String googleCloudProjectId,
+            final Consumer<StorageOptions.Builder> builderConfig) {
 
-		return new GoogleCloudStorageClient(googleCloudProjectId != null ? googleCloudProjectId :
-				StorageOptions.getDefaultProjectId());
+        final String projectId = googleCloudProjectId != null ? googleCloudProjectId : StorageOptions.getDefaultProjectId();
+        final StorageOptions.Builder builder = StorageOptions.newBuilder().setProjectId(projectId);
 
-	}
+        builderConfig.accept(builder);
+
+        return builder.build().getService();
+
+    }
 }
