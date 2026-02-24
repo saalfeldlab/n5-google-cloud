@@ -63,13 +63,13 @@ public class BackendIoPolicyTests {
 
 		// concurrent modification: 
 		// overwrite the blob, then attempt to materialize, shoud succeed
-		try (VolatileReadData vrd = policy.read("genmatch/blob")) {
+		try (VolatileReadData vrd = policy.read("unsafe/blob")) {
 
 			// should not store the generation
 			vrd.requireLength();
 
 			// overwrite to new generation
-			policy.write("genmatch/blob", ReadData.from(data2));
+			policy.write("unsafe/blob", ReadData.from(data2));
 
 			// ensure fetching the data gets the new data and does not error
 			assertArrayEquals(data2, vrd.allBytes());
