@@ -117,7 +117,7 @@ public interface GcsIoPolicy extends IoPolicy {
                     final Storage.BlobGetOption[] generationMatchOptions = new Storage.BlobGetOption[options.length + 1];
                     System.arraycopy(options, 0, generationMatchOptions, 0, options.length);
                     generationMatchOptions[options.length] = Storage.BlobGetOption.generationMatch(generation);
-                    BlobId blobId = BlobId.of(bucketName, normalKey, generation);
+                    BlobId blobId = BlobId.of(bucketName, normalKey);
                     blob = storage.get(blobId, generationMatchOptions);
                 } else {
                     BlobId blobId = BlobId.of(bucketName, normalKey);
@@ -143,7 +143,7 @@ public interface GcsIoPolicy extends IoPolicy {
         @Override
         public long size() {
 
-            final Blob blob = getBlob(normalKey, Storage.BlobGetOption.fields(Storage.BlobField.SIZE));
+            final Blob blob = getBlob(normalKey, Storage.BlobGetOption.fields(Storage.BlobField.SIZE, Storage.BlobField.GENERATION));
             return blob.getSize();
         }
 
