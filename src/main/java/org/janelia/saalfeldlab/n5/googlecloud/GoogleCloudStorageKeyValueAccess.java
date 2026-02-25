@@ -36,17 +36,12 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 	/*
 	 * Error codes
 	 */
-	final static int FAILED_PRECONDITION = 400;
-	final static int INVALID_ARGUMENT = 401;
-	final static int UNAUTHENTICATED = 402;
-	final static int PERMISSION_DENIED = 403;
 	final static int NOT_FOUND = 404;
-	final static int ALREADY_EXISTS = 409;
 
 	private final Storage storage;
 	private final GoogleCloudStorageURI containerURI;
 	public final String bucketName;
-	private final GcsIoPolicy ioPolicy;
+	private GcsIoPolicy ioPolicy;
 
 
 	private final boolean createBucket;
@@ -117,12 +112,16 @@ public class GoogleCloudStorageKeyValueAccess implements KeyValueAccess {
 
 		switch (ioPolicy) {
 			case "unsafe":
-			case "atomicFallbackUnsafe": // For Gc, this is equivalent ot just Unsafe
 				return new GcsIoPolicy.Unsafe(storage, bucketName);
-			case "atomic":
+			case "permissive": // For Gc, this is equivalent ot just strict
+			case "strict":
 			default:
 				return new GcsIoPolicy.GenerationMatch(storage, bucketName);
 		}
+	}
+
+	public void setIoPolicy(final GcsIoPolicy ioPolicy) {
+		this.ioPolicy = ioPolicy;
 	}
 
 	/**
