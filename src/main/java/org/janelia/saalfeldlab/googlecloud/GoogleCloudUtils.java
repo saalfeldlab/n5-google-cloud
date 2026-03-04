@@ -43,12 +43,13 @@ public class GoogleCloudUtils {
 
 	public static Storage createGoogleCloudStorage(
             @Nullable final String googleCloudProjectId,
-            final Consumer<StorageOptions.Builder> builderConfig) {
+            @Nullable final Consumer<StorageOptions.Builder> builderConfig) {
 
         final String projectId = googleCloudProjectId != null ? googleCloudProjectId : StorageOptions.getDefaultProjectId();
         final StorageOptions.Builder builder = StorageOptions.newBuilder().setProjectId(projectId);
 
-        builderConfig.accept(builder);
+		if (builderConfig != null)
+			builderConfig.accept(builder);
 
         return builder.build().getService();
 
