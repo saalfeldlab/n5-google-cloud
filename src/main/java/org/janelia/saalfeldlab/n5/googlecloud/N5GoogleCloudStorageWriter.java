@@ -40,8 +40,7 @@ public class N5GoogleCloudStorageWriter extends N5KeyValueWriter {
 	public N5GoogleCloudStorageWriter(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
-				new GoogleCloudStorageKeyValueAccess(storage, bucketName, true),
-				basePath,
+				new GoogleCloudStorageKeyValueRoot(storage, bucketName, basePath, true),
 				gsonBuilder,
 				cacheAttributes);
 	}

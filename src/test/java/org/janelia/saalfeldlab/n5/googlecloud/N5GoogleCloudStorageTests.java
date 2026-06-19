@@ -2,8 +2,16 @@ package org.janelia.saalfeldlab.n5.googlecloud;
 
 import com.google.cloud.storage.Storage;
 import com.google.gson.GsonBuilder;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.function.Supplier;
+import org.janelia.saalfeldlab.googlecloud.GoogleCloudStorageURI;
 import org.janelia.saalfeldlab.n5.AbstractN5Test;
-import org.janelia.saalfeldlab.n5.KeyValueAccess;
+import org.janelia.saalfeldlab.n5.KeyValueRoot;
 import org.janelia.saalfeldlab.n5.N5KeyValueReader;
 import org.janelia.saalfeldlab.n5.N5KeyValueWriter;
 import org.janelia.saalfeldlab.n5.N5Reader;
@@ -13,14 +21,6 @@ import org.janelia.saalfeldlab.n5.googlecloud.backend.BackendGoogleCloudStorageF
 import org.junit.AfterClass;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.security.SecureRandom;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.function.Supplier;
 
 /**
  * Base class for testing Google Cloud Storage N5 implementation.
@@ -162,15 +162,15 @@ public class N5GoogleCloudStorageTests extends AbstractN5Test {
 
 		final Storage storage = getGoogleCloudStorage();
 		final String uriString = location.startsWith("gs://") ? location : "gs://" + location;
-		final KeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(storage, N5URI.encodeAsUri(uriString), true);
-		return new N5KeyValueWriter(kva, uriString, gson, useCache.cache);
+		final KeyValueRoot kvr = new GoogleCloudStorageKeyValueRoot(storage, new GoogleCloudStorageURI(uriString), true);
+		return new N5KeyValueWriter(kvr, gson, useCache.cache);
 	}
 
 	@Override
 	protected N5Reader createN5Reader(final String location, final GsonBuilder gson) throws IOException, URISyntaxException {
 
 		final Storage storage = getGoogleCloudStorage();
-		final KeyValueAccess kva = new GoogleCloudStorageKeyValueAccess(storage, N5URI.encodeAsUri(location), false);
-		return new N5KeyValueReader(kva, location, gson, useCache.cache);
+		final KeyValueRoot kvr = new GoogleCloudStorageKeyValueRoot(storage, new GoogleCloudStorageURI(location), false);
+		return new N5KeyValueReader(kvr, gson, useCache.cache);
 	}
 }
