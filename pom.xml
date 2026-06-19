@@ -126,7 +126,7 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
-		<n5.version>4.0.1</n5.version>
+		<n5.version>4.0.3-SNAPSHOT</n5.version>
         <google-cloud-core.version>2.72.0</google-cloud-core.version>
         <google-cloud-nio.version>0.134.0</google-cloud-nio.version>
 		<google-cloud-resourcemanager.version>1.96.0</google-cloud-resourcemanager.version>
