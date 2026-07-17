@@ -126,7 +126,8 @@
 
 		<!-- NB: Deploy releases to the SciJava Maven repository. -->
 		<releaseProfiles>sign,deploy-to-scijava</releaseProfiles>
-		<n5.version>4.0.0-alpha-10</n5.version>
+		<n5.version>4.0.1</n5.version>
+        <google-cloud-core.version>2.72.0</google-cloud-core.version>
 	</properties>
 
 	<dependencies>
