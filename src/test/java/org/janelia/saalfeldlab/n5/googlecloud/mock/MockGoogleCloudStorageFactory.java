@@ -630,5 +630,17 @@ public class MockGoogleCloudStorageFactory {
 
 			return delegate.getOptions();
 		}
+
+		@Override
+		public Blob restore(BlobId blob, BlobRestoreOption... options) {
+
+			return delegate.restore(blob, options);
+		}
+
+		@Override
+		public Blob moveBlob(MoveBlobRequest request) {
+
+			return delegate.moveBlob(request);
+		}
 	}
 }
