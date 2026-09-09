@@ -211,7 +211,7 @@ public class GoogleCloudStorageKeyValueRoot implements KeyValueRoot {
 	@Override
 	public synchronized KeyValueAccess getKVA() {
 		if (kva == null) {
-			kva = new GoogleCloudStorageKeyValueAccess(storage, bucket, createBucket);
+			kva = new GoogleCloudStorageKeyValueAccess(storage, containerURI, createBucket);
 		}
 		return kva;
 	}
