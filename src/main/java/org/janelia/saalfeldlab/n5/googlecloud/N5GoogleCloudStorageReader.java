@@ -40,8 +40,7 @@ public class N5GoogleCloudStorageReader extends N5KeyValueReader {
 	public N5GoogleCloudStorageReader(final Storage storage, final String bucketName, final String basePath, final GsonBuilder gsonBuilder, final boolean cacheAttributes) throws N5Exception {
 
 		super(
-				new GoogleCloudStorageKeyValueAccess(storage, bucketName, false),
-				basePath,
+				new GoogleCloudStorageKeyValueRoot(storage, bucketName, basePath, false),
 				gsonBuilder,
 				cacheAttributes);
 

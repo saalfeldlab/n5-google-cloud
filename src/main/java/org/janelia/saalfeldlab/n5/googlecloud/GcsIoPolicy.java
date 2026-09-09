@@ -16,18 +16,6 @@ import java.nio.channels.Channels;
 
 public interface GcsIoPolicy extends IoPolicy {
 
-    static boolean validBounds(long channelSize, long offset, long length) {
-
-        if (offset < 0)
-            return false;
-        else if (channelSize > 0 && offset >= channelSize) // offset == 0 and arrayLength == 0 is okay
-            return false;
-        else if (length >= 0 && offset + length > channelSize)
-            return false;
-
-        return true;
-    }
-
     class Unsafe implements GcsIoPolicy {
 
         protected final Storage storage;
@@ -114,9 +102,11 @@ public interface GcsIoPolicy extends IoPolicy {
             final Blob blob;
             try {
                 if (generationMatch && generation != null) {
+
                     final Storage.BlobGetOption[] generationMatchOptions = new Storage.BlobGetOption[options.length + 1];
                     System.arraycopy(options, 0, generationMatchOptions, 0, options.length);
                     generationMatchOptions[options.length] = Storage.BlobGetOption.generationMatch(generation);
+
                     BlobId blobId = BlobId.of(bucketName, normalKey);
                     blob = storage.get(blobId, generationMatchOptions);
                 } else {
@@ -157,8 +147,7 @@ public interface GcsIoPolicy extends IoPolicy {
             try (ReadChannel from = blob.reader()) {
 
                 final long channelSize = blob.getSize();
-                if (!validBounds(channelSize, offset, length))
-                    throw new IndexOutOfBoundsException();
+				LazyRead.validateBounds(channelSize, offset, length);
 
                 from.seek(offset);
                 if (length > 0)
